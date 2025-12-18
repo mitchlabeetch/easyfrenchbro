@@ -97,6 +97,28 @@ interface WordGroupSelection {
   startIndex: number | null;
 }
 
+// History state for undo/redo
+interface HistorySnapshot {
+  pages: PageData[];
+  wordGroups: WordGroup[];
+  arrows: ArrowConnector[];
+  sidebars: SidebarCard[];
+  highlights: SpanHighlight[];
+  linkedPairs: LinkedPair[];
+}
+
+const MAX_HISTORY_SIZE = 50;
+
+// Create a snapshot of the current state
+const createSnapshot = (state: StoreState): HistorySnapshot => ({
+  pages: JSON.parse(JSON.stringify(state.pages)),
+  wordGroups: JSON.parse(JSON.stringify(state.wordGroups)),
+  arrows: JSON.parse(JSON.stringify(state.arrows)),
+  sidebars: JSON.parse(JSON.stringify(state.sidebars)),
+  highlights: JSON.parse(JSON.stringify(state.highlights)),
+  linkedPairs: JSON.parse(JSON.stringify(state.linkedPairs)),
+});
+
 interface StoreState extends ProjectState {
   // Actions
   setMetadata: (metadata: Partial<ProjectState['metadata']>) => void;
@@ -116,6 +138,9 @@ interface StoreState extends ProjectState {
   
   // Rich Text Actions
   updateLineStyles: (lineId: string, language: Language, styles: TextStyle[]) => void;
+  
+  // Line Reordering (Drag and Drop)
+  reorderLines: (pageId: string, fromIndex: number, toIndex: number) => void;
 
   // Legacy highlight actions (for backwards compatibility)
   addHighlight: (highlight: Omit<SpanHighlight, 'id'>) => void;
@@ -157,6 +182,16 @@ interface StoreState extends ProjectState {
   toggleFocusMode: () => void;
   toggleFrench: () => void;
   toggleEnglish: () => void;
+  toggleDarkMode: () => void;
+
+  // History/Undo-Redo
+  history: HistorySnapshot[];
+  historyIndex: number;
+  canUndo: boolean;
+  canRedo: boolean;
+  saveToHistory: () => void;
+  undo: () => void;
+  redo: () => void;
 
   setProjectState: (state: ProjectState) => void;
 
@@ -247,7 +282,8 @@ export const useStore = create<StoreState>((set, get) => ({
   uiSettings: {
     showFrench: true,
     showEnglish: true,
-    focusMode: false
+    focusMode: false,
+    darkMode: false
   },
   theme: {
     frenchFontFamily: 'serif',
@@ -283,6 +319,12 @@ export const useStore = create<StoreState>((set, get) => ({
     isSelectingTarget: false,
     lastInteractedGroupId: null
   },
+
+  // History state for undo/redo
+  history: [],
+  historyIndex: -1,
+  canUndo: false,
+  canRedo: false,
 
   selectedElementId: null,
   selectedElementType: null,
@@ -755,6 +797,22 @@ export const useStore = create<StoreState>((set, get) => ({
     pages: state.pages.map(p => p.id === id ? { ...p, ...updates } : p)
   })),
 
+  reorderLines: (pageId, fromIndex, toIndex) => set((state) => {
+    if (fromIndex === toIndex) return state;
+    
+    return {
+      pages: state.pages.map(page => {
+        if (page.id !== pageId) return page;
+        
+        const newLines = [...page.lines];
+        const [removed] = newLines.splice(fromIndex, 1);
+        newLines.splice(toIndex, 0, removed);
+        
+        return { ...page, lines: newLines };
+      })
+    };
+  }),
+
   setSelectedElement: (id, type) => set({ selectedElementId: id, selectedElementType: type }),
 
   // Word Group Selection actions
@@ -912,6 +970,76 @@ export const useStore = create<StoreState>((set, get) => ({
   toggleEnglish: () => set((state) => ({
     uiSettings: { ...state.uiSettings, showEnglish: !state.uiSettings.showEnglish }
   })),
+
+  toggleDarkMode: () => set((state) => ({
+    uiSettings: { ...state.uiSettings, darkMode: !state.uiSettings.darkMode }
+  })),
+
+  // History/Undo-Redo Actions
+  saveToHistory: () => set((state) => {
+    const snapshot = createSnapshot(state);
+    
+    // If we're not at the end of history, truncate future states
+    const newHistory = state.historyIndex >= 0 
+      ? state.history.slice(0, state.historyIndex + 1)
+      : [];
+    
+    // Add new snapshot
+    newHistory.push(snapshot);
+    
+    // Limit history size
+    if (newHistory.length > MAX_HISTORY_SIZE) {
+      newHistory.shift();
+    }
+    
+    return {
+      history: newHistory,
+      historyIndex: newHistory.length - 1,
+      canUndo: newHistory.length > 0,
+      canRedo: false
+    };
+  }),
+
+  undo: () => set((state) => {
+    if (state.historyIndex < 0 || state.history.length === 0) return state;
+    
+    // Save current state for potential redo (if not already saved)
+    let newHistory = [...state.history];
+    let newIndex = state.historyIndex;
+    
+    // If we're at the end, save current state first
+    if (newIndex === newHistory.length - 1) {
+      const currentSnapshot = createSnapshot(state);
+      newHistory.push(currentSnapshot);
+    }
+    
+    // Move back in history
+    newIndex = Math.max(0, newIndex - 1);
+    const snapshot = newHistory[newIndex];
+    
+    return {
+      ...snapshot,
+      history: newHistory,
+      historyIndex: newIndex,
+      canUndo: newIndex > 0,
+      canRedo: newIndex < newHistory.length - 1
+    };
+  }),
+
+  redo: () => set((state) => {
+    if (state.historyIndex >= state.history.length - 1) return state;
+    
+    const newIndex = state.historyIndex + 1;
+    const snapshot = state.history[newIndex];
+    
+    return {
+      ...snapshot,
+      history: state.history,
+      historyIndex: newIndex,
+      canUndo: newIndex > 0,
+      canRedo: newIndex < state.history.length - 1
+    };
+  }),
 }));
 
 // Migration function to handle old project format
@@ -932,8 +1060,11 @@ function migrateProjectState(state: any): ProjectState {
     migrated.uiSettings = {
       showFrench: true,
       showEnglish: true,
-      focusMode: false
+      focusMode: false,
+      darkMode: false
     };
+  } else if (migrated.uiSettings.darkMode === undefined) {
+    migrated.uiSettings.darkMode = false;
   }
 
   // Migrate old arrows (startElementId/endElementId -> sourceGroupIds/targetGroupIds)

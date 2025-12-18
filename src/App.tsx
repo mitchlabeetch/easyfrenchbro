@@ -26,10 +26,17 @@ import {
   Eye,
   EyeOff,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Moon,
+  Sun,
+  Keyboard,
+  Undo2,
+  Redo2
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { LinkingModal } from './components/LinkingModal';
+import { SearchBar } from './components/SearchBar';
+import { ExportModal } from './components/ExportModal';
 
 // Word type configuration with colors and labels
 const WORD_TYPES: { type: WordGroupType; label: string; shortLabel: string }[] = [
@@ -67,9 +74,15 @@ function App() {
     toggleFrench,
     toggleEnglish,
     toggleFocusMode,
+    toggleDarkMode,
     currentPageIndex,
     setCurrentPageIndex,
-    pages
+    pages,
+    undo,
+    redo,
+    saveToHistory,
+    canUndo,
+    canRedo
   } = useStore();
 
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -82,6 +95,17 @@ function App() {
   const [showInput, setShowInput] = useState(false);
   const [linesPerPage, setLinesPerPage] = useState(25);
   const [showLinkingModal, setShowLinkingModal] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  // Sync dark mode with body class
+  useEffect(() => {
+    if (uiSettings.darkMode) {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
+  }, [uiSettings.darkMode]);
 
   useEffect(() => {
     fetchPalettes();
@@ -115,7 +139,7 @@ function App() {
          templates: [],
          palettes: [palettes[0]], // preserve defaults
          theme: theme,
-         uiSettings: { showFrench: true, showEnglish: true, focusMode: false }
+         uiSettings: { showFrench: true, showEnglish: true, focusMode: false, darkMode: false }
      });
      
      try {
@@ -128,7 +152,10 @@ function App() {
      }
   };
 
-  // Keyboard shortcuts
+  // State for shortcuts panel visibility
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Comprehensive Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger if user is typing in an input/textarea
@@ -136,25 +163,111 @@ function App() {
         return;
       }
 
-      if (e.key.toLowerCase() === 'f') {
-        toggleFocusMode();
+      const ctrl = e.ctrlKey || e.metaKey; // Support Mac Cmd key
+
+      // Ctrl+S: Save project
+      if (ctrl && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (currentProjectName) {
+          saveProject(currentProjectName);
+        }
+        return;
       }
-      if (e.key === 'Escape' && uiSettings.focusMode) {
-        toggleFocusMode();
+
+      // Ctrl+Z: Undo
+      if (ctrl && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        if (canUndo) undo();
+        return;
       }
+
+      // Ctrl+Y or Ctrl+Shift+Z: Redo
+      if (ctrl && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        if (canRedo) redo();
+        return;
+      }
+
+      // Ctrl+G: Enter word group mode
+      if (ctrl && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        useStore.setState({ selectionMode: 'wordGroup' });
+        return;
+      }
+
+      // Ctrl+Shift+A: Enter arrow mode (Ctrl+A is reserved for select-all)
+      if (ctrl && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        useStore.setState({ selectionMode: 'arrow' });
+        return;
+      }
+
+      // Ctrl+1 through Ctrl+6: Quick word type selection
+      if (ctrl && e.key >= '1' && e.key <= '6') {
+        e.preventDefault();
+        const typeIndex = parseInt(e.key) - 1;
+        const types: WordGroupType[] = ['subject', 'verb', 'complement', 'article', 'adjective', 'adverb'];
+        if (typeIndex < types.length) {
+          const type = types[typeIndex];
+          handleWordTypeSelect(type);
+          useStore.setState({ selectionMode: 'wordGroup' });
+        }
+        return;
+      }
+
+      // Escape: Cancel current selection mode or exit focus mode
+      if (e.key === 'Escape') {
+        if (uiSettings.focusMode) {
+          toggleFocusMode();
+        } else if (selectionMode !== 'none') {
+          useStore.setState({ selectionMode: 'none' });
+          clearWordGroupSelection();
+          cancelArrowCreation();
+        }
+        return;
+      }
+
+      // Ctrl+F: Open search
+      if (ctrl && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setShowSearch(true);
+        return;
+      }
+
+      // F (without Ctrl): Toggle focus mode
+      if (e.key.toLowerCase() === 'f' && !ctrl) {
+        toggleFocusMode();
+        return;
+      }
+
+      // [ and ]: Page navigation
       if (e.key === '[') {
         const prev = Math.max(0, (currentPageIndex || 0) - 1);
         setCurrentPageIndex(prev);
+        return;
       }
       if (e.key === ']') {
         const next = Math.min(pages.length - 1, (currentPageIndex || 0) + 1);
         setCurrentPageIndex(next);
+        return;
+      }
+
+      // ?: Toggle shortcuts help
+      if (e.key === '?') {
+        setShowShortcuts(prev => !prev);
+        return;
+      }
+
+      // Enter: Confirm word group selection if any
+      if (e.key === 'Enter' && wordGroupSelection.wordIds.length > 0) {
+        confirmWordGroupSelection();
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [uiSettings.focusMode, toggleFocusMode]);
+  }, [uiSettings.focusMode, toggleFocusMode, currentProjectName, selectionMode, wordGroupSelection.wordIds.length]);
 
   const handleParse = () => {
     parseAndSetText(inputFrench, inputEnglish);
@@ -344,18 +457,60 @@ function App() {
             </div>
             
             <button
-                // Simple save trigger
-                onClick={() => currentProjectName && saveProject(currentProjectName)}
+                // Simple save trigger - also save history
+                onClick={() => {
+                  if (currentProjectName) {
+                    saveToHistory(); // Save state before any changes
+                    saveProject(currentProjectName);
+                  }
+                }}
                 className="w-full flex items-center justify-center gap-2 p-2 bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 text-xs font-medium"
             >
                 <FolderOpen size={14} /> Save Project
+            </button>
+
+            {/* Undo/Redo Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => canUndo && undo()}
+                disabled={!canUndo}
+                className={clsx(
+                  "flex-1 flex items-center justify-center gap-1 p-2 rounded text-xs font-medium transition-colors",
+                  canUndo 
+                    ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100" 
+                    : "bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed"
+                )}
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo2 size={14} /> Undo
+              </button>
+              <button
+                onClick={() => canRedo && redo()}
+                disabled={!canRedo}
+                className={clsx(
+                  "flex-1 flex items-center justify-center gap-1 p-2 rounded text-xs font-medium transition-colors",
+                  canRedo 
+                    ? "bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100" 
+                    : "bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed"
+                )}
+                title="Redo (Ctrl+Y)"
+              >
+                <Redo2 size={14} /> Redo
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="w-full flex items-center justify-center gap-2 p-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded hover:from-blue-700 hover:to-purple-700 text-xs font-medium"
+            >
+              <Download size={14} /> Export
             </button>
 
             <button
               onClick={handleNativePrint}
               className="w-full flex items-center justify-center gap-2 p-2 bg-gray-800 text-white rounded hover:bg-gray-700 text-xs font-medium"
             >
-              <Printer size={14} /> Print / PDF
+              <Printer size={14} /> Quick Print
             </button>
           </div>
 
@@ -546,11 +701,29 @@ function App() {
                     {uiSettings.showEnglish ? <Eye size={14} /> : <EyeOff size={14} />} English
                   </button>
                 </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={toggleFocusMode}
+                    className="flex-1 flex items-center justify-center gap-2 p-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded hover:bg-indigo-100 text-xs font-medium"
+                  >
+                    <Maximize2 size={14} /> Focus
+                  </button>
+                  <button
+                    onClick={toggleDarkMode}
+                    className={clsx(
+                      "flex-1 flex items-center justify-center gap-2 p-2 rounded border text-xs font-medium transition-colors",
+                      uiSettings.darkMode ? "bg-gray-700 border-gray-600 text-yellow-400" : "bg-gray-50 border-gray-200 text-gray-600"
+                    )}
+                  >
+                    {uiSettings.darkMode ? <Sun size={14} /> : <Moon size={14} />}
+                    {uiSettings.darkMode ? 'Light' : 'Dark'}
+                  </button>
+                </div>
                 <button
-                  onClick={toggleFocusMode}
-                  className="w-full flex items-center justify-center gap-2 p-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded hover:bg-indigo-100 text-xs font-medium"
+                  onClick={() => setShowShortcuts(true)}
+                  className="w-full flex items-center justify-center gap-2 p-2 bg-gray-50 text-gray-600 border border-gray-200 rounded hover:bg-gray-100 text-xs font-medium"
                 >
-                  <Maximize2 size={14} /> Focus Mode
+                  <Keyboard size={14} /> Shortcuts (?)
                 </button>
               </div>
             </div>
@@ -632,6 +805,82 @@ function App() {
           isOpen={showLinkingModal} 
           onClose={() => setShowLinkingModal(false)} 
         />
+      )}
+
+      {/* Search Bar */}
+      <SearchBar 
+        isOpen={showSearch} 
+        onClose={() => setShowSearch(false)} 
+      />
+
+      {/* Export Modal */}
+      <ExportModal 
+        isOpen={showExportModal} 
+        onClose={() => setShowExportModal(false)} 
+      />
+
+      {/* Keyboard Shortcuts Help Panel */}
+      {showShortcuts && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center"
+          onClick={() => setShowShortcuts(false)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800">⌨️ Keyboard Shortcuts</h2>
+              <button 
+                onClick={() => setShowShortcuts(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Word Types</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex justify-between"><span>⌘/Ctrl + 1</span><span className="text-gray-500">Subject</span></div>
+                  <div className="flex justify-between"><span>⌘/Ctrl + 2</span><span className="text-gray-500">Verb</span></div>
+                  <div className="flex justify-between"><span>⌘/Ctrl + 3</span><span className="text-gray-500">Complement</span></div>
+                  <div className="flex justify-between"><span>⌘/Ctrl + 4</span><span className="text-gray-500">Article</span></div>
+                  <div className="flex justify-between"><span>⌘/Ctrl + 5</span><span className="text-gray-500">Adjective</span></div>
+                  <div className="flex justify-between"><span>⌘/Ctrl + 6</span><span className="text-gray-500">Adverb</span></div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Actions</h3>
+                <div className="grid grid-cols-1 gap-2 text-sm">
+                  <div className="flex justify-between"><span>⌘/Ctrl + S</span><span className="text-gray-500">Save Project</span></div>
+                  <div className="flex justify-between"><span>⌘/Ctrl + Z</span><span className="text-gray-500">Undo</span></div>
+                  <div className="flex justify-between"><span>⌘/Ctrl + Y</span><span className="text-gray-500">Redo</span></div>
+                  <div className="flex justify-between"><span>⌘/Ctrl + G</span><span className="text-gray-500">Group Mode</span></div>
+                  <div className="flex justify-between"><span>⌘/Ctrl + ⇧ + A</span><span className="text-gray-500">Arrow Mode</span></div>
+                  <div className="flex justify-between"><span>Enter</span><span className="text-gray-500">Confirm Selection</span></div>
+                  <div className="flex justify-between"><span>Escape</span><span className="text-gray-500">Cancel / Exit Focus</span></div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Navigation</h3>
+                <div className="grid grid-cols-1 gap-2 text-sm">
+                  <div className="flex justify-between"><span>⌘/Ctrl + F</span><span className="text-gray-500">Find & Replace</span></div>
+                  <div className="flex justify-between"><span>F</span><span className="text-gray-500">Focus Mode</span></div>
+                  <div className="flex justify-between"><span>[ / ]</span><span className="text-gray-500">Previous / Next Page</span></div>
+                  <div className="flex justify-between"><span>?</span><span className="text-gray-500">Toggle This Help</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t text-center text-xs text-gray-400">
+              Press <kbd className="px-1 py-0.5 bg-gray-100 rounded text-gray-600">?</kbd> anytime to toggle this panel
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

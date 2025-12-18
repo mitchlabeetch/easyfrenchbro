@@ -184,6 +184,7 @@ export interface UISettings {
   showFrench: boolean;
   showEnglish: boolean;
   focusMode: boolean;
+  darkMode: boolean;
 }
 
 // Template Interface
