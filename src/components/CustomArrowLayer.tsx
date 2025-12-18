@@ -26,12 +26,17 @@ interface CustomArrowLayerProps {
 }
 
 export const CustomArrowLayer: React.FC<CustomArrowLayerProps> = ({ onArrowClick }) => {
-  const { arrows, wordGroups, selectedElementId, setSelectedElement, selectionMode } = useStore();
+  const { arrows, wordGroups, selectedElementId, setSelectedElement, selectionMode, zoomLevel } = useStore();
   const [arrowPaths, setArrowPaths] = useState<ArrowPath[]>([]);
 
   // Calculate arrow paths when arrows or word groups change
   const calculatePaths = useCallback(() => {
     const paths: ArrowPath[] = [];
+
+    // Get workspace inner container for relative positioning
+    const workspaceInner = document.querySelector('.workspace-inner');
+    if (!workspaceInner) return;
+    const innerRect = workspaceInner.getBoundingClientRect();
 
     arrows.forEach(arrow => {
       // Get source and target group elements
@@ -44,7 +49,7 @@ export const CustomArrowLayer: React.FC<CustomArrowLayerProps> = ({ onArrowClick
         if (!group) return;
 
         // Get all word elements in this group
-        const groupRect = getGroupBoundingRect(group.wordIds);
+        const groupRect = getGroupBoundingRect(group.wordIds, innerRect, zoomLevel);
         if (groupRect) {
           sourcePositions.push(groupRect);
         }
@@ -55,7 +60,7 @@ export const CustomArrowLayer: React.FC<CustomArrowLayerProps> = ({ onArrowClick
         const group = wordGroups.find(g => g.id === groupId);
         if (!group) return;
 
-        const groupRect = getGroupBoundingRect(group.wordIds);
+        const groupRect = getGroupBoundingRect(group.wordIds, innerRect, zoomLevel);
         if (groupRect) {
           targetPositions.push(groupRect);
         }
@@ -81,7 +86,7 @@ export const CustomArrowLayer: React.FC<CustomArrowLayerProps> = ({ onArrowClick
     });
 
     setArrowPaths(paths);
-  }, [arrows, wordGroups, selectedElementId]);
+  }, [arrows, wordGroups, selectedElementId, zoomLevel]);
 
   // Recalculate on mount and when dependencies change
   useEffect(() => {
@@ -210,35 +215,36 @@ export const CustomArrowLayer: React.FC<CustomArrowLayerProps> = ({ onArrowClick
 
 /**
  * Get the combined bounding rect for a group of word elements
+ * Returns coordinates relative to the workspace-inner container, adjusted for zoom
  */
-function getGroupBoundingRect(wordIds: string[]): DOMRect | null {
-  const container = document.getElementById('workspace-container');
-  if (!container) return null;
-  
-  const containerRect = container.getBoundingClientRect();
-  const scrollLeft = container.scrollLeft;
-  const scrollTop = container.scrollTop;
-
+function getGroupBoundingRect(wordIds: string[], innerRect: DOMRect, zoom: number): DOMRect | null {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
+  let found = false;
 
   wordIds.forEach(wordId => {
     const el = document.getElementById(wordId);
     if (!el) return;
 
     const rect = el.getBoundingClientRect();
-    const x = rect.left - containerRect.left + scrollLeft;
-    const y = rect.top - containerRect.top + scrollTop;
+    
+    // Calculate position relative to the workspace-inner container
+    // And un-scale it by dividing by zoom
+    const x = (rect.left - innerRect.left) / zoom;
+    const y = (rect.top - innerRect.top) / zoom;
+    const w = rect.width / zoom;
+    const h = rect.height / zoom;
 
     minX = Math.min(minX, x);
     minY = Math.min(minY, y);
-    maxX = Math.max(maxX, x + rect.width);
-    maxY = Math.max(maxY, y + rect.height);
+    maxX = Math.max(maxX, x + w);
+    maxY = Math.max(maxY, y + h);
+    found = true;
   });
 
-  if (minX === Infinity) return null;
+  if (!found) return null;
 
   return new DOMRect(minX, minY, maxX - minX, maxY - minY);
 }

@@ -82,6 +82,17 @@ export const Workspace: React.FC = () => {
     const currentPage = pages[currentPageIndex || 0];
     const splitRatio = currentPage?.splitRatio ?? theme.pageLayout?.splitRatio ?? 0.5;
 
+    // Helper to get coordinates relative to the zoomed workspace-inner
+    const getRelativePosition = (clientX: number, clientY: number) => {
+        const inner = workspaceRef.current?.querySelector('.workspace-inner');
+        if (!inner) return { x: 0, y: 0 };
+        const rect = inner.getBoundingClientRect();
+        return {
+            x: (clientX - rect.left) / zoomLevel,
+            y: (clientY - rect.top) / zoomLevel
+        };
+    };
+
     // Keyboard shortcuts for line reordering
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -111,7 +122,14 @@ export const Workspace: React.FC = () => {
         if (arrowCreation?.sourceGroupIds.length > 0 && arrowCreation?.targetGroupIds.length > 0) {
             const el = document.getElementById(arrowCreation.lastInteractedGroupId || '');
             const rect = el?.getBoundingClientRect();
-            const pos = rect ? { x: rect.right + 10, y: rect.top } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+            // Use window center as fallback, but relative to inner
+            const fallbackX = window.innerWidth / 2;
+            const fallbackY = window.innerHeight / 2;
+            
+            const rawX = rect ? rect.right + 10 : fallbackX;
+            const rawY = rect ? rect.top : fallbackY;
+            
+            const pos = getRelativePosition(rawX, rawY);
             setArrowMenu({ isOpen: true, x: pos.x, y: pos.y });
         }
     }, [arrowCreation?.sourceGroupIds, arrowCreation?.targetGroupIds]);
@@ -226,13 +244,14 @@ export const Workspace: React.FC = () => {
 
     const handleLineDoubleClick = (e: React.MouseEvent, lineId: string, language: 'french' | 'english', text: string, styles: TextStyle[] = []) => {
         e.stopPropagation();
+        const pos = getRelativePosition(e.clientX, e.clientY);
         setEditorState({
             isOpen: true,
             lineId,
             language,
             initialText: text,
             initialStyles: styles,
-            position: { x: e.clientX, y: e.clientY }
+            position: pos
         });
     };
 
@@ -295,12 +314,16 @@ export const Workspace: React.FC = () => {
 
             <div className="workspace-inner relative shadow-2xl origin-top transition-transform duration-200"
                 style={{ transform: `scale(${zoomLevel})`, marginBottom: `${(zoomLevel - 1) * 100}%` }}>
-                <CustomArrowLayer 
-                    onArrowClick={(_id, pos) => {
-                        // Position helper above the arrow click
-                        setArrowEditMenuPosition({ x: pos.x, y: pos.y - 120 }); // Adjust offset as needed
-                    }} 
-                />
+                <div style={{ zIndex: draggedLineIndex !== null ? -1 : 10, position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                    <CustomArrowLayer 
+                        onArrowClick={(_id, pos) => {
+                            // Position helper above the arrow click
+                            // pos is already clientX/Y from the event
+                            const relPos = getRelativePosition(pos.x, pos.y);
+                            setArrowEditMenuPosition({ x: relPos.x, y: relPos.y - 120 }); // Adjust offset as needed
+                        }} 
+                    />
+                </div>
                 
                 {selectedElementId && selectedElementType === 'arrow' && arrowEditMenuPosition && (
                     <ArrowEditMenu
@@ -409,7 +432,8 @@ export const Workspace: React.FC = () => {
                                                     onClick={(e) => { 
                                                         e.stopPropagation(); 
                                                         const rect = e.currentTarget.getBoundingClientRect();
-                                                        setSidebarMenu({ isOpen: true, x: rect.right + 10, y: rect.top, lineId: line.id });
+                                                        const pos = getRelativePosition(rect.right + 10, rect.top);
+                                                        setSidebarMenu({ isOpen: true, x: pos.x, y: pos.y, lineId: line.id });
                                                     }}>
                                                     <PlusCircle size={14} /></button>
                                                 <button className="text-indigo-500 hover:text-indigo-700 p-1 hover:bg-indigo-50 rounded" title="Speak"

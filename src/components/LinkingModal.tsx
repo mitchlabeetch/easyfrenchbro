@@ -85,56 +85,67 @@ export const LinkingModal: React.FC<LinkingModalProps> = ({ isOpen, onClose }) =
                     <div className="grid grid-cols-2 gap-4">
                         {/* French */}
                         <div className="p-2 bg-gray-50 rounded">
-                            {/* We need to render words clickable. 
-                                Using a simplified rendering not WordGroupRenderer for custom click logic?
-                                Actually WordGroupRenderer is complex. Let's just map words manually here for simplicity of selection.
-                            */}
                             <div className="flex flex-wrap gap-1">
-                                {line.frenchText.split(' ').map((word, i) => {
-                                    const wordId = `${line.id}-french-${i}`;
-                                    const isSelected = selectedFrench.includes(wordId);
-                                    // Check if already linked
-                                    const isLinked = linkedPairs.some(p => p.sourceWordIds.includes(wordId));
-                                    
-                                    return (
-                                        <span 
-                                            key={i}
-                                            onClick={() => !isLinked && handleWordClick(wordId, 'french')}
-                                            className={`
-                                                cursor-pointer px-1 rounded transition-colors
-                                                ${isSelected ? 'bg-blue-200 text-blue-800 font-bold' : ''}
-                                                ${isLinked ? 'text-green-600 bg-green-50 cursor-default border border-green-200' : 'hover:bg-blue-100'}
-                                            `}
-                                        >
-                                            {word}
-                                        </span>
-                                    );
-                                })}
+                                {(() => {
+                                    const tokens = line.frenchText.split(/([a-zA-Z0-9À-ÿ'']+)/).filter(Boolean);
+                                    let wordIndex = 0;
+                                    return tokens.map((token, i) => {
+                                        const isWord = /^[a-zA-Z0-9À-ÿ'']+$/.test(token);
+                                        if (!isWord) return <span key={i} className="text-gray-400">{token}</span>;
+
+                                        const currentWordIndex = wordIndex++;
+                                        const wordId = `${line.id}-french-${currentWordIndex}`;
+                                        const isSelected = selectedFrench.includes(wordId);
+                                        const isLinked = linkedPairs.some(p => p.sourceWordIds.includes(wordId));
+                                        
+                                        return (
+                                            <span 
+                                                key={i}
+                                                onClick={() => !isLinked && handleWordClick(wordId, 'french')}
+                                                className={`
+                                                    cursor-pointer px-1 rounded transition-colors
+                                                    ${isSelected ? 'bg-blue-200 text-blue-800 font-bold' : ''}
+                                                    ${isLinked ? 'text-green-600 bg-green-50 cursor-default border border-green-200' : 'hover:bg-blue-100'}
+                                                `}
+                                            >
+                                                {token}
+                                            </span>
+                                        );
+                                    });
+                                })()}
                             </div>
                         </div>
 
                         {/* English */}
-                         <div className="p-2 bg-gray-50 rounded">
+                        <div className="p-2 bg-gray-50 rounded">
                             <div className="flex flex-wrap gap-1">
-                                {line.englishText.split(' ').map((word, i) => {
-                                    const wordId = `${line.id}-english-${i}`;
-                                    const isSelected = selectedEnglish.includes(wordId);
-                                    const isLinked = linkedPairs.some(p => p.targetWordIds.includes(wordId));
-                                    
-                                    return (
-                                        <span 
-                                            key={i}
-                                            onClick={() => !isLinked && handleWordClick(wordId, 'english')}
-                                            className={`
-                                                cursor-pointer px-1 rounded transition-colors
-                                                ${isSelected ? 'bg-indigo-200 text-indigo-800 font-bold' : ''}
-                                                ${isLinked ? 'text-green-600 bg-green-50 cursor-default border border-green-200' : 'hover:bg-indigo-100'}
-                                            `}
-                                        >
-                                            {word}
-                                        </span>
-                                    );
-                                })}
+                                {(() => {
+                                    const tokens = line.englishText.split(/([a-zA-Z0-9À-ÿ'']+)/).filter(Boolean);
+                                    let wordIndex = 0;
+                                    return tokens.map((token, i) => {
+                                        const isWord = /^[a-zA-Z0-9À-ÿ'']+$/.test(token);
+                                        if (!isWord) return <span key={i} className="text-gray-400">{token}</span>;
+
+                                        const currentWordIndex = wordIndex++;
+                                        const wordId = `${line.id}-english-${currentWordIndex}`;
+                                        const isSelected = selectedEnglish.includes(wordId);
+                                        const isLinked = linkedPairs.some(p => p.targetWordIds.includes(wordId));
+                                        
+                                        return (
+                                            <span 
+                                                key={i}
+                                                onClick={() => !isLinked && handleWordClick(wordId, 'english')}
+                                                className={`
+                                                    cursor-pointer px-1 rounded transition-colors
+                                                    ${isSelected ? 'bg-indigo-200 text-indigo-800 font-bold' : ''}
+                                                    ${isLinked ? 'text-green-600 bg-green-50 cursor-default border border-green-200' : 'hover:bg-indigo-100'}
+                                                `}
+                                            >
+                                                {token}
+                                            </span>
+                                        );
+                                    });
+                                })()}
                             </div>
                         </div>
                     </div>

@@ -26,7 +26,10 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
     setSelectedElement,
     theme,
     highlightSelection,
-    addToHighlightSelection
+    highlights,
+    addHighlight,
+    removeHighlight,
+    updateHighlight
   } = useStore();
 
   // Split text into words and non-words (punctuation/spaces)
@@ -83,8 +86,39 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
         }
       }
     } else if (selectionMode === 'highlight') {
-      // Legacy highlight mode support
-      addToHighlightSelection(wordId, language, lineId);
+      // Toggle highlight for this word
+      const existing = highlights.find(h => 
+          h.associatedLineId === lineId && 
+          (language === 'french' ? h.frenchWordIds.includes(wordId) : h.englishWordIds.includes(wordId))
+       );
+       
+       if (existing) {
+          // Keep it simple: remove the highlight entry entirely if it's a single word match? 
+          // Or smarter: remove just this word.
+          const isFrench = language === 'french';
+          const ids = isFrench ? existing.frenchWordIds : existing.englishWordIds;
+          const newIds = ids.filter(id => id !== wordId);
+          
+          // If nothing left in this highlight (for both langs), remove it
+          const otherLangIds = isFrench ? existing.englishWordIds : existing.frenchWordIds;
+          
+          if (newIds.length === 0 && otherLangIds.length === 0) {
+              removeHighlight(existing.id);
+          } else {
+              updateHighlight(existing.id, {
+                  frenchWordIds: isFrench ? newIds : existing.frenchWordIds,
+                  englishWordIds: !isFrench ? newIds : existing.englishWordIds
+              });
+          }
+       } else {
+          // Create new highlight with selected color
+          addHighlight({
+              associatedLineId: lineId,
+              frenchWordIds: language === 'french' ? [wordId] : [],
+              englishWordIds: language === 'english' ? [wordId] : [],
+              colorCode: useStore.getState().selectedColor
+          });
+       }
     } else if (selectionMode === 'none') {
       const group = wordIdToGroup.get(wordId);
       if (group) {
