@@ -3,7 +3,8 @@ import type {
   ProjectState, 
   PageData, 
   LineData, 
-  SpanHighlight, 
+  SpanHighlight,
+  HighlightRange,
   ArrowConnector, 
   SidebarCard, 
   ThemeConfig,
@@ -104,6 +105,7 @@ interface HistorySnapshot {
   arrows: ArrowConnector[];
   sidebars: SidebarCard[];
   highlights: SpanHighlight[];
+  highlightRanges: HighlightRange[];
   linkedPairs: LinkedPair[];
 }
 
@@ -116,6 +118,7 @@ const createSnapshot = (state: StoreState): HistorySnapshot => ({
   arrows: JSON.parse(JSON.stringify(state.arrows)),
   sidebars: JSON.parse(JSON.stringify(state.sidebars)),
   highlights: JSON.parse(JSON.stringify(state.highlights)),
+  highlightRanges: JSON.parse(JSON.stringify(state.highlightRanges || [])),
   linkedPairs: JSON.parse(JSON.stringify(state.linkedPairs)),
 });
 
@@ -138,7 +141,8 @@ interface StoreState extends ProjectState {
   
   // Rich Text Actions
   updateLineStyles: (lineId: string, language: Language, styles: TextStyle[]) => void;
-  
+  setTextEditingLineId: (data: { lineId: string; language: Language } | null) => void;
+
   // Line Reordering (Drag and Drop)
   reorderLines: (pageId: string, fromIndex: number, toIndex: number) => void;
 
@@ -146,6 +150,11 @@ interface StoreState extends ProjectState {
   addHighlight: (highlight: Omit<SpanHighlight, 'id'>) => void;
   removeHighlight: (id: string) => void;
   updateHighlight: (id: string, updates: Partial<SpanHighlight>) => void;
+
+  // NEW: Marker Pen Highlight actions
+  addHighlightRange: (range: Omit<HighlightRange, 'id'>) => void;
+  removeHighlightRange: (id: string) => void;
+  updateHighlightRange: (id: string, updates: Partial<HighlightRange>) => void;
   
   // Word Group actions (NEW)
   addWordGroup: (group: Omit<WordGroup, 'id'>) => void;
@@ -241,6 +250,9 @@ interface StoreState extends ProjectState {
   selectedElementId: string | null;
   selectedElementType: 'arrow' | 'highlight' | 'wordGroup' | 'anecdote' | null;
 
+  // Text Editing State
+  textEditingLineId: { lineId: string; language: Language } | null;
+
   setSelectedElement: (id: string | null, type: 'arrow' | 'highlight' | 'wordGroup' | 'anecdote' | null) => void;
   
   // Word group selection actions
@@ -277,6 +289,7 @@ export const useStore = create<StoreState>((set, get) => ({
   pages: [{ id: 'page-1', lines: [] }],
   currentPageIndex: 0,
   highlights: [],
+  highlightRanges: [],
   wordGroups: [],
   arrows: [],
   sidebars: [],
@@ -339,6 +352,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   selectedElementId: null,
   selectedElementType: null,
+  textEditingLineId: null,
 
   setMetadata: (metadata) => set((state) => ({ metadata: { ...state.metadata, ...metadata } })),
   setPages: (pages) => set({ pages }),
@@ -375,6 +389,8 @@ export const useStore = create<StoreState>((set, get) => ({
     });
   },
 
+  setTextEditingLineId: (data) => set({ textEditingLineId: data }),
+
   // Legacy highlight actions
   addHighlight: (highlight) => set((state) => ({
     highlights: [...state.highlights, { ...highlight, id: generateId() }]
@@ -387,6 +403,25 @@ export const useStore = create<StoreState>((set, get) => ({
 
   updateHighlight: (id, updates) => set((state) => ({
     highlights: state.highlights.map(h => h.id === id ? { ...h, ...updates } : h)
+  })),
+
+  // NEW: Marker Pen Highlight actions
+  addHighlightRange: (range) => {
+    get().saveToHistory();
+    set((state) => ({
+      highlightRanges: [...(state.highlightRanges || []), { ...range, id: generateId() }]
+    }));
+  },
+
+  removeHighlightRange: (id) => {
+    get().saveToHistory();
+    set((state) => ({
+      highlightRanges: (state.highlightRanges || []).filter(h => h.id !== id)
+    }));
+  },
+
+  updateHighlightRange: (id, updates) => set((state) => ({
+      highlightRanges: (state.highlightRanges || []).map(h => h.id === id ? { ...h, ...updates } : h)
   })),
 
   // Word Group actions
@@ -730,6 +765,7 @@ export const useStore = create<StoreState>((set, get) => ({
       selectionMode: 'none',
       selectedElementId: null,
       selectedElementType: null,
+      textEditingLineId: null,
       highlightSelection: { frenchIds: [], englishIds: [], lineId: null },
       wordGroupSelection: { wordIds: [], lineId: null, language: null, startIndex: null },
       arrowCreation: { sourceGroupIds: [], targetGroupIds: [], isSelectingTarget: false, lastInteractedGroupId: null }
@@ -822,7 +858,7 @@ export const useStore = create<StoreState>((set, get) => ({
           pages.push({ id: generateId(), lines: [] });
         }
 
-        set({ pages, highlights: [], wordGroups: [], arrows: [], sidebars: [] });
+        set({ pages, highlights: [], highlightRanges: [], wordGroups: [], arrows: [], sidebars: [] });
       },
       error: (error: any) => {
         console.error("CSV Parse Error:", error);
@@ -880,7 +916,7 @@ export const useStore = create<StoreState>((set, get) => ({
       pages.push({ id: generateId(), lines: [] });
     }
 
-    set({ pages, highlights: [], wordGroups: [], arrows: [], sidebars: [] });
+    set({ pages, highlights: [], highlightRanges: [], wordGroups: [], arrows: [], sidebars: [] });
   },
 
   removeLine: (pageId, lineId) => {

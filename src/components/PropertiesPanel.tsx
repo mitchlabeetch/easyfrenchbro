@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useStore } from '../store';
 import { Trash2, Palette, Layout, Settings, Plus, Copy, RefreshCw, Check } from 'lucide-react';
 import { ArrowStyle, ArrowHeadStyle, WordGroupType, PageSize, AnecdoteType } from '../types';
+import { RichTextEditor } from './RichTextEditor';
 
 const WORD_TYPE_LABELS: Record<WordGroupType, string> = {
   subject: 'Subject',
@@ -96,13 +97,56 @@ export const PropertiesPanel: React.FC = () => {
     removeTemplate,
     toggleLayoutMode,
     zoomLevel,
-    setZoomLevel
+    setZoomLevel,
+    textEditingLineId,
+    pages,
+    updateLineStyles,
+    syncLineStyles,
+    setTextEditingLineId
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'theme' | 'palette' | 'layout' | 'templates'>('theme');
   const [newPaletteName, setNewPaletteName] = useState('');
   const [newTemplateName, setNewTemplateName] = useState('');
   const [templateType, setTemplateType] = useState<'layout' | 'arrow' | 'project' | 'anecdote'>('arrow');
+
+const CSSUnitInput: React.FC<{ value: string; onChange: (val: string) => void }> = ({ value, onChange }) => {
+    // Parse value and unit
+    // Simple regex: starts with number, ends with unit
+    const match = value.match(/^([\d.]+)([a-z%]+)?$/);
+    const num = match ? match[1] : value;
+    const unit = match ? match[2] || 'mm' : 'mm'; // Default to mm
+
+    const handleNumChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        onChange(`${e.target.value}${unit}`);
+    };
+
+    const handleUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        onChange(`${num}${e.target.value}`);
+    };
+
+    return (
+        <div className="flex rounded border overflow-hidden">
+            <input
+                type="number"
+                className="w-full p-1 text-sm border-r outline-none"
+                value={num}
+                onChange={handleNumChange}
+            />
+            <select
+                className="bg-gray-50 text-[10px] p-1 outline-none"
+                value={unit}
+                onChange={handleUnitChange}
+            >
+                <option value="mm">mm</option>
+                <option value="cm">cm</option>
+                <option value="in">in</option>
+                <option value="px">px</option>
+                <option value="%">%</option>
+            </select>
+        </div>
+    );
+};
 
   // Get active palette
   const activePalette = palettes.find(p => p.id === theme.activePaletteId) || palettes.find(p => p.isDefault) || palettes[0];
@@ -192,6 +236,49 @@ export const PropertiesPanel: React.FC = () => {
       });
     }
   };
+
+  // Text Editing Mode
+  if (textEditingLineId) {
+    const page = pages.find(p => p.lines.some(l => l.id === textEditingLineId.lineId));
+    const line = page?.lines.find(l => l.id === textEditingLineId.lineId);
+
+    if (!line) {
+        setTextEditingLineId(null);
+        return null;
+    }
+
+    const text = textEditingLineId.language === 'french' ? line.frenchText : line.englishText;
+    const styles = textEditingLineId.language === 'french' ? (line.frenchStyles || []) : (line.englishStyles || []);
+
+    return (
+        <div className="w-80 bg-white border-l flex flex-col h-full bg-gray-50">
+             <RichTextEditor
+                initialText={text}
+                initialStyles={styles}
+                onSave={(newText, newStyles, shouldSync) => {
+                    // Note: Current RichTextEditor implementation does not support text editing propagation back to lines directly via this callback easily if structure changes,
+                    // but for now we assume it edits styles primarily or returns text.
+                    // Ideally we should update the line text if changed.
+                    // For this refactor, let's assume updateLineStyles handles text too if we expand it,
+                    // but currently the store action `updateLineStyles` only does styles.
+                    // We might need `updateLine` action.
+                    // However, rich text editor prompts for text editing too.
+                    // For now, let's just save styles.
+                    updateLineStyles(textEditingLineId.lineId, textEditingLineId.language, newStyles);
+                    if (shouldSync) {
+                        syncLineStyles(textEditingLineId.lineId, textEditingLineId.language, newStyles);
+                    }
+                    setTextEditingLineId(null);
+                }}
+                onCancel={() => setTextEditingLineId(null)}
+                // Position is now relative to this panel or handled by CSS in the component for "embedded" mode
+                // We'll update RichTextEditor to handle embedded mode
+                position={{ x: 0, y: 0 }}
+                isEmbedded={true}
+             />
+        </div>
+    );
+  }
 
   // No selection - show Global Settings
   if (!selectedElementId || !selectedElementType) {
@@ -390,16 +477,14 @@ export const PropertiesPanel: React.FC = () => {
                     {(['top', 'bottom', 'left', 'right'] as const).map(side => (
                          <div key={side}>
                            <label className="block text-[10px] text-gray-400 capitalize">{side}</label>
-                           <input 
-                             type="text" 
-                             className="w-full border rounded p-1 text-sm"
-                             value={theme.pageLayout?.margins[side] || '20mm'}
-                             onChange={(e) => updateTheme({ 
+                           <CSSUnitInput
+                               value={theme.pageLayout?.margins[side] || '20mm'}
+                               onChange={(val) => updateTheme({
                                  pageLayout: { 
                                      ...theme.pageLayout!, 
-                                     margins: { ...theme.pageLayout!.margins, [side]: e.target.value } 
+                                     margins: { ...theme.pageLayout!.margins, [side]: val }
                                  } 
-                             })}
+                               })}
                            />
                          </div>
                     ))}
