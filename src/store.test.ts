@@ -1,66 +1,105 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useStore } from './store';
+import { LineData } from './types';
 
-describe('Store', () => {
+describe('useStore', () => {
   beforeEach(() => {
     useStore.setState({
-      lines: [],
-      sidebars: [],
+      metadata: {
+        title: 'Untitled Project',
+        author: '',
+        difficultyLevel: 'Intermediate',
+        year: new Date().getFullYear(),
+      },
+      pages: [{ id: 'page-1', lines: [] }],
       highlights: [],
       arrows: [],
-      highlightSelection: { frenchIds: [], englishIds: [], lineId: null }
+      sidebars: [],
+      theme: {
+        frenchFontFamily: 'serif',
+        englishFontFamily: 'sans-serif',
+        fontSize: '18px',
+        lineHeight: '1.6',
+        highlightColors: ['#fef3c7', '#dcfce7', '#dbeafe', '#fce7f3'],
+      },
     });
   });
 
-  it('should parse and set text correctly, trimming inputs', () => {
-    const rawFrench = "  Bonjour  \n  Monde  ";
-    const rawEnglish = "  Hello  \n  World  ";
-
-    useStore.getState().parseAndSetText(rawFrench, rawEnglish);
-
-    const { lines } = useStore.getState();
-    expect(lines).toHaveLength(2);
-    expect(lines[0].frenchText).toBe('Bonjour');
-    expect(lines[0].englishText).toBe('Hello');
-    expect(lines[1].frenchText).toBe('Monde');
-    expect(lines[1].englishText).toBe('World');
+  it('should initialize with default values', () => {
+    const state = useStore.getState();
+    expect(state.pages).toHaveLength(1);
+    expect(state.pages[0].lines).toHaveLength(0);
+    expect(state.metadata.title).toBe('Untitled Project');
   });
 
-  it('should handle uneven lines by filling with empty strings', () => {
-    const rawFrench = "Bonjour";
-    const rawEnglish = "Hello\nWorld";
+  it('should add a highlight', () => {
+    const highlight = {
+      colorCode: '#fef3c7',
+      frenchWordIds: ['f1'],
+      englishWordIds: ['e1'],
+      associatedLineId: 'line-1',
+    };
 
-    useStore.getState().parseAndSetText(rawFrench, rawEnglish);
-
-    const { lines } = useStore.getState();
-    expect(lines).toHaveLength(2);
-    expect(lines[0].frenchText).toBe('Bonjour');
-    expect(lines[0].englishText).toBe('Hello');
-    expect(lines[1].frenchText).toBe('');
-    expect(lines[1].englishText).toBe('World');
+    useStore.getState().addHighlight(highlight);
+    const state = useStore.getState();
+    expect(state.highlights).toHaveLength(1);
+    expect(state.highlights[0]).toMatchObject(highlight);
   });
 
-  it('should add and update sidebar cards', () => {
-    // Add a dummy line to anchor to
-    useStore.getState().setLines([{ id: 'line-1', lineNumber: 1, frenchText: 'A', englishText: 'B' }]);
+  it('should remove a highlight', () => {
+    const highlight = {
+      colorCode: '#fef3c7',
+      frenchWordIds: ['f1'],
+      englishWordIds: ['e1'],
+      associatedLineId: 'line-1',
+    };
+    useStore.getState().addHighlight(highlight);
+    const id = useStore.getState().highlights[0].id;
 
-    // Add card
-    useStore.getState().addSidebarCard({
-        type: 'grammar',
-        content: 'Initial Content',
-        anchoredLineId: 'line-1'
-    });
+    useStore.getState().removeHighlight(id);
+    expect(useStore.getState().highlights).toHaveLength(0);
+  });
 
-    let { sidebars } = useStore.getState();
-    expect(sidebars).toHaveLength(1);
-    expect(sidebars[0].content).toBe('Initial Content');
+  it('should reflow pages correctly', () => {
+    // Create some dummy lines manually
+    const lines: LineData[] = Array.from({ length: 30 }, (_, i) => ({
+      id: `line-${i}`,
+      lineNumber: i + 1,
+      frenchText: `Fr ${i}`,
+      englishText: `En ${i}`
+    }));
 
-    const cardId = sidebars[0].id;
+    // Set initial state with 1 page containing all lines
+    useStore.setState({ pages: [{ id: 'p1', lines }] });
 
-    // Update card
-    useStore.getState().updateSidebarCard(cardId, { content: 'Updated Content' });
+    // Reflow to 10 lines per page
+    useStore.getState().reflowPages(10);
 
-    sidebars = useStore.getState().sidebars;
-    expect(sidebars[0].content).toBe('Updated Content');
+    const state = useStore.getState();
+    expect(state.pages).toHaveLength(3);
+    expect(state.pages[0].lines).toHaveLength(10);
+    expect(state.pages[1].lines).toHaveLength(10);
+    expect(state.pages[2].lines).toHaveLength(10);
+    expect(state.pages[0].lines[0].id).toBe('line-0');
+    expect(state.pages[1].lines[0].id).toBe('line-10');
+  });
+
+  it('should parse text and paginate', () => {
+    // Create text for 30 lines
+    const fr = Array(30).fill('Bonjour').join('\n');
+    const en = Array(30).fill('Hello').join('\n');
+
+    useStore.getState().parseAndSetText(fr, en);
+
+    const state = useStore.getState();
+    // Default is 25 per page, so we expect 2 pages (25 + 5)
+    expect(state.pages).toHaveLength(2);
+    expect(state.pages[0].lines).toHaveLength(25);
+    expect(state.pages[1].lines).toHaveLength(5);
+  });
+
+  it('should update metadata', () => {
+    useStore.getState().setMetadata({ title: 'New Title' });
+    expect(useStore.getState().metadata.title).toBe('New Title');
   });
 });

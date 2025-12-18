@@ -2,12 +2,14 @@ import { useState, useRef } from 'react';
 import { Workspace } from './components/Workspace';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { useStore } from './store';
-import { Download, MoveDiagonal, Languages, Highlighter, Check, X, Save, FolderOpen } from 'lucide-react';
+import { Download, MoveDiagonal, Languages, Highlighter, Check, X, Save, FolderOpen, Printer, FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
 
 function App() {
   const {
     parseAndSetText,
+    importFromCSV,
+    reflowPages,
     selectionMode,
     selectedColor,
     theme,
@@ -18,14 +20,37 @@ function App() {
   } = useStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const [inputFrench, setInputFrench] = useState("Le chat mange la souris.\nIl fait beau aujourd'hui.");
   const [inputEnglish, setInputEnglish] = useState("The cat eats the mouse.\nIt is nice today.");
-  const [showInput, setShowInput] = useState(true);
+  const [showInput, setShowInput] = useState(false); // Default hidden now
+  const [linesPerPage, setLinesPerPage] = useState(25);
 
   const handleParse = () => {
     parseAndSetText(inputFrench, inputEnglish);
     setShowInput(false);
+  };
+
+  const handleCSVImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+          const csv = e.target?.result as string;
+          importFromCSV(csv);
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+  };
+
+  const handleReflow = () => {
+      reflowPages(linesPerPage);
+  };
+
+  const handleNativePrint = () => {
+      window.print();
   };
 
   const handleExport = async () => {
@@ -59,7 +84,7 @@ function App() {
       const state = useStore.getState();
       const projectData = {
           metadata: state.metadata,
-          lines: state.lines,
+          pages: state.pages,
           highlights: state.highlights,
           arrows: state.arrows,
           sidebars: state.sidebars,
@@ -85,7 +110,26 @@ function App() {
       reader.onload = (e) => {
           try {
               const json = JSON.parse(e.target?.result as string);
-              // Basic validation could go here
+
+              // Migration for old projects (lines -> pages)
+              if (json.lines && Array.isArray(json.lines) && !json.pages) {
+                  const allLines = json.lines;
+                  // Default to one big page or chunk it? Let's chunk it to be safe.
+                  const linesPerPage = 25;
+                  const pages = [];
+                  for (let i = 0; i < allLines.length; i += linesPerPage) {
+                      pages.push({
+                          id: `migrated-page-${i}`, // Simple ID generation
+                          lines: allLines.slice(i, i + linesPerPage)
+                      });
+                  }
+                  if (pages.length === 0) {
+                      pages.push({ id: 'migrated-page-empty', lines: [] });
+                  }
+                  json.pages = pages;
+                  delete json.lines;
+              }
+
               setProjectState(json);
           } catch (error) {
               console.error("Failed to load project", error);
@@ -122,6 +166,50 @@ function App() {
             </div>
 
             <div className="flex-1 overflow-auto p-4 space-y-6">
+
+                {/* Data Toolbar */}
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Data & Structure</label>
+
+                    <button
+                        onClick={() => csvInputRef.current?.click()}
+                        className="w-full flex items-center justify-center gap-2 p-2 bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 text-xs font-medium"
+                    >
+                        <FileSpreadsheet size={14} /> Import CSV
+                    </button>
+                    <input
+                        type="file"
+                        ref={csvInputRef}
+                        onChange={handleCSVImport}
+                        accept=".csv"
+                        className="hidden"
+                    />
+
+                    <div className="flex gap-2 items-center">
+                        <input
+                            type="number"
+                            value={linesPerPage}
+                            onChange={(e) => setLinesPerPage(Number(e.target.value))}
+                            className="w-16 p-1 text-xs border rounded"
+                            title="Lines per page"
+                        />
+                        <button
+                            onClick={handleReflow}
+                            className="flex-1 flex items-center justify-center gap-2 p-2 bg-gray-100 rounded hover:bg-gray-200 text-xs font-medium text-gray-700"
+                        >
+                            <RefreshCw size={14} /> Reflow
+                        </button>
+                    </div>
+
+                     <button
+                        onClick={handleNativePrint}
+                        className="w-full flex items-center justify-center gap-2 p-2 bg-gray-800 text-white rounded hover:bg-gray-700 text-xs font-medium"
+                    >
+                        <Printer size={14} /> Print / PDF
+                    </button>
+                </div>
+
+                <div className="border-t my-2"></div>
 
                 {/* Project Actions */}
                 <div className="grid grid-cols-2 gap-2">

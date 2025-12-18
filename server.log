@@ -7,8 +7,11 @@
 [0] > node server.js
 [0]
 [1]
-[1]   VITE v5.4.21  ready in 306 ms
+[1]   VITE v5.4.21  ready in 301 ms
 [1]
 [1]   ➜  Local:   http://localhost:5173/
 [1]   ➜  Network: use --host to expose
 [0] Server running on http://localhost:3001
+[1] 2:00:02 AM [vite] page reload src/types.ts
+[1] 2:00:07 AM [vite] hmr update /src/App.tsx, /src/index.css, /src/components/PropertiesPanel.tsx, /src/components/Workspace.tsx, /src/components/TextRenderer.tsx, /src/components/ArrowLayer.tsx
+[1] 2:00:39 AM [vite] hmr update /src/App.tsx, /src/index.css
