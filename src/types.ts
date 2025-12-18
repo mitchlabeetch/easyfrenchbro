@@ -1,4 +1,6 @@
 export type Language = 'french' | 'english';
+export type LayoutMode = 'side-by-side' | 'interlinear';
+export type SectionType = 'title' | 'paragraph' | 'note' | 'list' | 'heading';
 
 export interface ProjectMetadata {
   title: string;
@@ -32,6 +34,7 @@ export interface LineData {
   // NEW: Store styles for words in this line
   frenchStyles?: TextStyle[];
   englishStyles?: TextStyle[];
+  sectionType?: SectionType;
 }
 
 export interface PageData {
@@ -173,6 +176,14 @@ export interface ThemeConfig {
   // NEW: Extended theme settings
   pageLayout?: PageLayout;
   activePaletteId?: string;
+  layoutMode: LayoutMode;
+}
+
+// NEW: UI Settings
+export interface UISettings {
+  showFrench: boolean;
+  showEnglish: boolean;
+  focusMode: boolean;
 }
 
 // Template Interface
@@ -194,4 +205,5 @@ export interface ProjectState {
   palettes: ColorPalette[]; // NEW
   linkedPairs: LinkedPair[]; // NEW
   templates: Template[]; // NEW
+  uiSettings: UISettings; // NEW
 }

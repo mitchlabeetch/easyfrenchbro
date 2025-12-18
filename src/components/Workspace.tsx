@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useStore } from '../store';
 import { WordGroupRenderer } from './WordGroupRenderer';
 import { CustomArrowLayer } from './CustomArrowLayer';
-import { PlusCircle, Pen, Settings2, Trash2, X } from 'lucide-react';
+import { PlusCircle, Pen, Settings2, Trash2, X, Volume2 } from 'lucide-react';
+import { clsx } from 'clsx';
 import { RichTextEditor } from './RichTextEditor';
 import { ArrowTemplateMenu } from './ArrowTemplateMenu';
 import { TextStyle, AnecdoteType } from '../types';
@@ -25,7 +26,9 @@ export const Workspace: React.FC = () => {
       setSelectedElement,
       clearWordGroupSelection,
       cancelArrowCreation,
-      updateLineStyles
+      updateLineStyles,
+      uiSettings,
+      updateLineProperty
   } = useStore();
 
 
@@ -109,6 +112,28 @@ export const Workspace: React.FC = () => {
 
       window.addEventListener('mousemove', onMouseMove);
       window.addEventListener('mouseup', onMouseUp);
+  };
+
+  // Dynamic grid template for lines
+  const getGridTemplate = () => {
+    const { showFrench, showEnglish } = uiSettings;
+    const { layoutMode } = theme;
+
+    if (layoutMode === 'interlinear') {
+      return "3rem 1fr 12rem"; // Stacked mode: Line# | Content | Sidebar
+    }
+
+    const parts = ["3rem"];
+    
+    if (showFrench && showEnglish) {
+      parts.push(`${splitRatio}fr`);
+      parts.push(`${1 - splitRatio}fr`);
+    } else if (showFrench || showEnglish) {
+      parts.push("1fr");
+    }
+    
+    parts.push("12rem");
+    return parts.join(" ");
   };
 
   const handleBackgroundClick = () => {
@@ -235,6 +260,12 @@ export const Workspace: React.FC = () => {
              </button>
           </div>
       )}
+
+      {/* TTS Utility */}
+      {(() => {
+        window.speechSynthesis?.cancel(); // Safety cleanup
+        return null;
+      })()}
       
       {editorState.isOpen && (
           <RichTextEditor
@@ -264,7 +295,7 @@ export const Workspace: React.FC = () => {
 
             <div className="space-y-6 relative z-0">
               {currentPage.lines.map((line) => (
-                <div key={line.id} className="grid gap-4 group relative" style={{ gridTemplateColumns: `3rem ${splitRatio}fr ${(1-splitRatio)}fr 12rem` }}>
+                <div key={line.id} className="grid gap-4 group relative" style={{ gridTemplateColumns: getGridTemplate() }}>
                   
                   {/* Line Number / Action */}
                   <div className="text-gray-300 font-mono text-sm text-right pr-2 pt-1 select-none flex flex-col items-end gap-1">
@@ -272,20 +303,31 @@ export const Workspace: React.FC = () => {
                     
                      {/* Hover Actions */}
                     <div className="hidden group-hover:flex flex-col gap-1 no-print">
-                        <button
+                         <button
                           className="text-blue-500 hover:text-blue-700 p-1 hover:bg-blue-50 rounded"
                           title="Add Anecdote"
-                          // TODO: Open Type Selection Tooltip
                           onClick={(e) => {
                             e.stopPropagation();
                             addSidebarCard({
-                              type: 'grammar', // Default, should be selectable
+                              type: 'grammar',
                               content: 'New Note',
                               anchoredLineId: line.id
                             });
                           }}
                         >
                           <PlusCircle size={14} />
+                        </button>
+                        <button
+                          className="text-indigo-500 hover:text-indigo-700 p-1 hover:bg-indigo-50 rounded"
+                          title="Speak Selection"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const utterance = new SpeechSynthesisUtterance(line.frenchText + " " + line.englishText);
+                            utterance.lang = 'fr-FR'; // Default to French for mixed context or just read French
+                            window.speechSynthesis.speak(utterance);
+                          }}
+                        >
+                          <Volume2 size={14} />
                         </button>
                         <button
                           className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded relative group/manage"
@@ -306,50 +348,139 @@ export const Workspace: React.FC = () => {
                                >
                                    <Trash2 size={12} /> Delete
                                </button>
+                               
+                               <div className="border-t my-1 pt-1">
+                                  <div className="text-[10px] text-gray-400 mb-1 px-1 uppercase font-bold">Line Type</div>
+                                  {(['paragraph', 'title', 'heading', 'note', 'list'] as const).map(type => (
+                                      <button
+                                          key={type}
+                                          className={clsx(
+                                              "w-full text-left text-[10px] p-1 rounded hover:bg-gray-50 capitalize",
+                                              line.sectionType === type && "text-blue-600 font-bold bg-blue-50"
+                                          )}
+                                          onClick={(e) => {
+                                              e.stopPropagation();
+                                              updateLineProperty(line.id, { sectionType: type });
+                                          }}
+                                      >
+                                          {type}
+                                      </button>
+                                  ))}
+                               </div>
                            </div>
                         </button>
                     </div>
                   </div>
 
-                  {/* French Column */}
-                  <div 
-                    className="relative p-1 rounded hover:bg-gray-50 transition-colors"
-                    onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french', line.frenchText, line.frenchStyles)}
-                  >
-                     <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                        <Pen size={12} className="text-gray-400" />
-                     </div>
-                    <WordGroupRenderer 
-                      text={line.frenchText} 
-                      language="french" 
-                      lineId={line.id}
-                      styles={line.frenchStyles}
-                    />
-                  </div>
+                  {/* Interlinear Mode Rendering */}
+                  {theme.layoutMode === 'interlinear' ? (
+                    <div className={clsx(
+                      "relative p-1 space-y-2",
+                      line.sectionType === 'title' && "text-center py-4",
+                      line.sectionType === 'heading' && "border-b border-gray-100 py-2"
+                    )}>
+                      {/* French Row */}
+                      {uiSettings.showFrench && (
+                        <div 
+                          className={clsx(
+                            "relative p-1 rounded hover:bg-gray-50 transition-colors",
+                            line.sectionType === 'title' && "text-2xl font-bold",
+                            line.sectionType === 'heading' && "text-xl font-bold"
+                          )}
+                          onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french', line.frenchText, line.frenchStyles)}
+                        >
+                           <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                              <Pen size={12} className="text-gray-400" />
+                           </div>
+                          <WordGroupRenderer 
+                            text={line.frenchText} 
+                            language="french" 
+                            lineId={line.id}
+                            styles={line.frenchStyles}
+                          />
+                        </div>
+                      )}
+                      
+                      {/* English Row */}
+                      {uiSettings.showEnglish && (
+                        <div 
+                          className={clsx(
+                            "relative p-1 rounded hover:bg-gray-50 transition-colors text-gray-500",
+                            line.sectionType === 'title' && "text-lg italic text-gray-400",
+                            line.sectionType === 'heading' && "text-base italic text-gray-400"
+                          )}
+                          onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english', line.englishText, line.englishStyles)}
+                        >
+                           <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                               <Pen size={12} className="text-gray-400" />
+                           </div>
+                          <WordGroupRenderer 
+                            text={line.englishText} 
+                            language="english" 
+                            lineId={line.id}
+                            styles={line.englishStyles}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      {/* French Column */}
+                      {uiSettings.showFrench && (
+                        <div 
+                          className={clsx(
+                            "relative p-1 rounded hover:bg-gray-50 transition-colors",
+                            line.sectionType === 'title' && "text-2xl font-bold text-center",
+                            line.sectionType === 'heading' && "text-xl font-bold"
+                          )}
+                          onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french', line.frenchText, line.frenchStyles)}
+                        >
+                           <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                              <Pen size={12} className="text-gray-400" />
+                           </div>
+                          <WordGroupRenderer 
+                            text={line.frenchText} 
+                            language="french" 
+                            lineId={line.id}
+                            styles={line.frenchStyles}
+                          />
+                        </div>
+                      )}
 
-                  {/* Separation Handler (Draggable) */}
-                  <div 
-                     onMouseDown={handleSplitMouseDown}
-                     className="absolute top-0 bottom-0 w-2 -ml-1 cursor-col-resize hover:bg-blue-400 z-20 opacity-0 hover:opacity-50 transition-opacity" 
-                     style={{ left: `calc(3rem + ${splitRatio * 100}%)` }}
-                     title="Drag to resize columns"
-                  />
+                      {/* Separation Handler (Draggable) - Only show if both columns visible */}
+                      {uiSettings.showFrench && uiSettings.showEnglish && (
+                        <div 
+                           onMouseDown={handleSplitMouseDown}
+                           className="absolute top-0 bottom-0 w-2 -ml-1 cursor-col-resize hover:bg-blue-400 z-20 opacity-0 hover:opacity-50 transition-opacity" 
+                           style={{ left: `calc(3rem + ${splitRatio * 100}%)` }}
+                           title="Drag to resize columns"
+                        />
+                      )}
 
-                  {/* English Column */}
-                  <div 
-                    className="relative border-l border-gray-100 pl-4 p-1 rounded hover:bg-gray-50 transition-colors"
-                    onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english', line.englishText, line.englishStyles)}
-                  >
-                     <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                         <Pen size={12} className="text-gray-400" />
-                     </div>
-                    <WordGroupRenderer 
-                      text={line.englishText} 
-                      language="english" 
-                      lineId={line.id}
-                      styles={line.englishStyles}
-                    />
-                  </div>
+                      {/* English Column */}
+                      {uiSettings.showEnglish && (
+                        <div 
+                          className={clsx(
+                            "relative p-1 rounded hover:bg-gray-50 transition-colors",
+                            uiSettings.showFrench && "border-l border-gray-100 pl-4",
+                            line.sectionType === 'title' && "text-lg italic text-gray-400 text-center",
+                            line.sectionType === 'heading' && "text-base italic text-gray-400"
+                          )}
+                          onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english', line.englishText, line.englishStyles)}
+                        >
+                           <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                               <Pen size={12} className="text-gray-400" />
+                           </div>
+                          <WordGroupRenderer 
+                            text={line.englishText} 
+                            language="english" 
+                            lineId={line.id}
+                            styles={line.englishStyles}
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
 
 
                   {/* Sidebar Column (Annotations) */}

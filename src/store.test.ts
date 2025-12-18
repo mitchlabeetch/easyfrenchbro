@@ -21,6 +21,7 @@ describe('useStore', () => {
         fontSize: '18px',
         lineHeight: '1.6',
         highlightColors: ['#fef3c7', '#dcfce7', '#dbeafe', '#fce7f3'],
+        layoutMode: 'side-by-side',
       },
     });
   });

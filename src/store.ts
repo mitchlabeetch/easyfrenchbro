@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { 
+import type { 
   ProjectState, 
   PageData, 
   LineData, 
@@ -14,7 +14,9 @@ import {
   TextStyle,
   Template,
   LinkedPair,
-  AnecdoteType
+  AnecdoteType,
+  UISettings,
+  SectionType
 } from './types';
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
@@ -24,7 +26,7 @@ const generateId = () => uuidv4();
 // Default color palette (Extended)
 const DEFAULT_PALETTE: ColorPalette = {
   id: 'default-palette',
-  name: 'Default',
+  name: 'Modern Default',
   colors: {
     subject: '#93c5fd',    // Blue
     verb: '#fca5a5',       // Red
@@ -32,19 +34,60 @@ const DEFAULT_PALETTE: ColorPalette = {
     article: '#fde047',    // Yellow
     adjective: '#c4b5fd',  // Purple
     adverb: '#fdba74',     // Orange
-    
-    text: '#000000',
-
-    grammar: '#fef3c7', // Yellow-ish
-    spoken: '#dbeafe',  // Blue-ish
-    history: '#fee2e2', // Red-ish
-    falseFriend: '#ffedd5', // Orange-ish
-    pronunciation: '#f3e8ff', // Purple-ish
-    vocab: '#dcfce7', // Green-ish
-
+    text: '#1f2937',
+    grammar: '#fef3c7',
+    spoken: '#dbeafe',
+    history: '#fee2e2',
+    falseFriend: '#ffedd5',
+    pronunciation: '#f3e8ff',
+    vocab: '#dcfce7',
     custom: ['#e5e7eb', '#d1d5db', '#9ca3af', '#4b5563', '#1f2937']
   },
   isDefault: true
+};
+
+const ZEN_GARDEN: ColorPalette = {
+  id: 'zen-garden',
+  name: 'Zen Garden',
+  colors: {
+    subject: '#a7f3d0',
+    verb: '#fbcfe8',
+    complement: '#e9d5ff',
+    article: '#fef3c7',
+    adjective: '#ccfbf1',
+    adverb: '#ede9fe',
+    text: '#064e3b',
+    grammar: '#f0fdf4',
+    spoken: '#eff6ff',
+    history: '#fdf2f8',
+    falseFriend: '#fff7ed',
+    pronunciation: '#f5f3ff',
+    vocab: '#ecfdf5',
+    custom: ['#ecfdf5', '#d1fae5', '#a7f3d0', '#6ee7b7', '#34d399']
+  },
+  isDefault: false
+};
+
+const ROYAL_LIBRARY: ColorPalette = {
+  id: 'royal-library',
+  name: 'Royal Library',
+  colors: {
+    subject: '#1e3a8a',
+    verb: '#b91c1c',
+    complement: '#15803d',
+    article: '#d97706',
+    adjective: '#6d28d9',
+    adverb: '#be123c',
+    text: '#111827',
+    grammar: '#fffbeb',
+    spoken: '#f0f9ff',
+    history: '#fef2f2',
+    falseFriend: '#fff7ed',
+    pronunciation: '#faf5ff',
+    vocab: '#f0fdf4',
+    custom: ['#fef3c7', '#fde68a', '#fcd34d', '#fbbf24', '#f59e0b']
+  },
+  isDefault: false
 };
 
 interface WordGroupSelection {
@@ -96,6 +139,8 @@ interface StoreState extends ProjectState {
   
   // Extended Palette actions
   updateTheme: (theme: Partial<ThemeConfig>) => void;
+  toggleLayoutMode: () => void;
+  updateLineProperty: (lineId: string, updates: { sectionType?: SectionType }) => void;
   addPalette: (palette: Omit<ColorPalette, 'id'>) => void;
   updatePalette: (id: string, updates: Partial<ColorPalette>) => void;
   removePalette: (id: string) => void;
@@ -106,6 +151,12 @@ interface StoreState extends ProjectState {
   // Template Actions
   addTemplate: (template: Omit<Template, 'id'>) => void;
   removeTemplate: (id: string) => void;
+  
+  // UI Settings Actions
+  updateUISettings: (settings: Partial<UISettings>) => void;
+  toggleFocusMode: () => void;
+  toggleFrench: () => void;
+  toggleEnglish: () => void;
 
   setProjectState: (state: ProjectState) => void;
 
@@ -190,16 +241,22 @@ export const useStore = create<StoreState>((set, get) => ({
   wordGroups: [],
   arrows: [],
   sidebars: [],
-  palettes: [DEFAULT_PALETTE],
+  palettes: [DEFAULT_PALETTE, ZEN_GARDEN, ROYAL_LIBRARY],
   linkedPairs: [],
   templates: [],
+  uiSettings: {
+    showFrench: true,
+    showEnglish: true,
+    focusMode: false
+  },
   theme: {
     frenchFontFamily: 'serif',
     englishFontFamily: 'sans-serif',
     fontSize: '18px',
     lineHeight: '1.6',
     highlightColors: ['#fef3c7', '#dcfce7', '#dbeafe', '#fce7f3'],
-    activePaletteId: 'default-palette'
+    activePaletteId: 'default-palette',
+    layoutMode: 'side-by-side'
   },
 
   selectionMode: 'none',
@@ -341,6 +398,22 @@ export const useStore = create<StoreState>((set, get) => ({
   // Theme & Palette actions
   updateTheme: (theme) => set((state) => ({
     theme: { ...state.theme, ...theme }
+  })),
+
+  toggleLayoutMode: () => set((state) => ({
+    theme: {
+      ...state.theme,
+      layoutMode: state.theme.layoutMode === 'side-by-side' ? 'interlinear' : 'side-by-side'
+    }
+  })),
+
+  updateLineProperty: (lineId, updates) => set((state) => ({
+    pages: state.pages.map(page => ({
+      ...page,
+      lines: page.lines.map(line => 
+        line.id === lineId ? { ...line, ...updates } : line
+      )
+    }))
   })),
 
   updatePalette: (id, updates) => set((state) => ({
@@ -822,7 +895,23 @@ export const useStore = create<StoreState>((set, get) => ({
     return { highlightSelection: newSelection };
   }),
 
-  clearHighlightSelection: () => set({ highlightSelection: { frenchIds: [], englishIds: [], lineId: null } })
+  clearHighlightSelection: () => set({ highlightSelection: { frenchIds: [], englishIds: [], lineId: null } }),
+
+  updateUISettings: (settings) => set((state) => ({
+    uiSettings: { ...state.uiSettings, ...settings }
+  })),
+
+  toggleFocusMode: () => set((state) => ({
+    uiSettings: { ...state.uiSettings, focusMode: !state.uiSettings.focusMode }
+  })),
+
+  toggleFrench: () => set((state) => ({
+    uiSettings: { ...state.uiSettings, showFrench: !state.uiSettings.showFrench }
+  })),
+
+  toggleEnglish: () => set((state) => ({
+    uiSettings: { ...state.uiSettings, showEnglish: !state.uiSettings.showEnglish }
+  })),
 }));
 
 // Migration function to handle old project format
@@ -834,9 +923,17 @@ function migrateProjectState(state: any): ProjectState {
     migrated.wordGroups = [];
   }
 
-  // Ensure palettes exists
   if (!migrated.palettes || migrated.palettes.length === 0) {
     migrated.palettes = [DEFAULT_PALETTE];
+  }
+
+  // Ensure uiSettings exists
+  if (!migrated.uiSettings) {
+    migrated.uiSettings = {
+      showFrench: true,
+      showEnglish: true,
+      focusMode: false
+    };
   }
 
   // Migrate old arrows (startElementId/endElementId -> sourceGroupIds/targetGroupIds)
@@ -875,6 +972,11 @@ function migrateProjectState(state: any): ProjectState {
     }
     migrated.pages = pages;
     delete migrated.lines;
+  }
+
+  // Ensure layoutMode exists
+  if (migrated.theme && !migrated.theme.layoutMode) {
+    migrated.theme.layoutMode = 'side-by-side';
   }
 
   return migrated as ProjectState;

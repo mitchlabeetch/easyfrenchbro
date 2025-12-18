@@ -22,7 +22,11 @@ import {
   FilePlus,
   ChevronLeft,
   ChevronRight,
-  Trash2
+  Trash2,
+  Eye,
+  EyeOff,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { LinkingModal } from './components/LinkingModal';
@@ -58,7 +62,14 @@ function App() {
     getColorForType,
     loadProject,
     saveProject,
-    fetchPalettes
+    fetchPalettes,
+    uiSettings,
+    toggleFrench,
+    toggleEnglish,
+    toggleFocusMode,
+    currentPageIndex,
+    setCurrentPageIndex,
+    pages
   } = useStore();
 
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -103,7 +114,8 @@ function App() {
          linkedPairs: [],
          templates: [],
          palettes: [palettes[0]], // preserve defaults
-         theme: theme
+         theme: theme,
+         uiSettings: { showFrench: true, showEnglish: true, focusMode: false }
      });
      
      try {
@@ -115,6 +127,34 @@ function App() {
          alert("Failed to create project");
      }
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (e.key.toLowerCase() === 'f') {
+        toggleFocusMode();
+      }
+      if (e.key === 'Escape' && uiSettings.focusMode) {
+        toggleFocusMode();
+      }
+      if (e.key === '[') {
+        const prev = Math.max(0, (currentPageIndex || 0) - 1);
+        setCurrentPageIndex(prev);
+      }
+      if (e.key === ']') {
+        const next = Math.min(pages.length - 1, (currentPageIndex || 0) + 1);
+        setCurrentPageIndex(next);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [uiSettings.focusMode, toggleFocusMode]);
 
   const handleParse = () => {
     parseAndSetText(inputFrench, inputEnglish);
@@ -203,9 +243,10 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden font-sans">
+    <div className="flex h-screen w-screen overflow-hidden font-sans bg-gray-100">
       {/* Left Panel: Input & Controls */}
-      <div className="w-80 bg-white border-r flex flex-col shadow-lg z-20 no-print">
+      {!uiSettings.focusMode && (
+        <div className="w-80 bg-white border-r flex flex-col shadow-lg z-20 no-print">
         <div className="p-4 border-b bg-gradient-to-r from-blue-600 to-indigo-600">
           <div className="flex items-center gap-2 mb-2">
              <button onClick={() => setView('dashboard')} className="text-white hover:bg-white/20 p-1 rounded">
@@ -462,110 +503,129 @@ function App() {
             </div>
           )}
 
-          {/* Current Palette Display */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-                 <label className="text-xs font-bold text-gray-500 uppercase">Palette: {activePalette?.name}</label>
-                 {/* Visual indicator pointing to right panel */}
-                 <span className="text-[10px] text-blue-500 cursor-help" title="Manage Palettes in Right Panel">Manage →</span>
+            {/* Palette display */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                   <label className="text-xs font-bold text-gray-500 uppercase">Palette: {activePalette?.name}</label>
+                   <span className="text-[10px] text-blue-500 cursor-help" title="Manage Palettes in Right Panel">Manage →</span>
+              </div>
+              <div className="grid grid-cols-6 gap-1 bg-gray-50 p-2 rounded border">
+                {Object.entries(activePalette?.colors || {}).map(([key, color]) => {
+                    if (key === 'custom' || typeof color !== 'string') return null;
+                    return <div key={key} className="w-full aspect-square rounded border" style={{ backgroundColor: color }} title={`Role: ${key}`} />;
+                })}
+                {activePalette?.colors.custom.map((color, idx) => (
+                   <div key={`cust-${idx}`} className="w-full aspect-square rounded-full border" style={{ backgroundColor: color }} title={`Custom ${idx+1}`} />
+                ))}
+              </div>
             </div>
-            
-            <div className="grid grid-cols-6 gap-1 bg-gray-50 p-2 rounded border">
-              {/* Main Roles */}
-              {Object.entries(activePalette?.colors || {}).map(([key, color]) => {
-                  if (key === 'custom' || typeof color !== 'string') return null;
-                  return (
-                    <div 
-                        key={key} 
-                        className="w-full aspect-square rounded border" 
-                        style={{ backgroundColor: color }}
-                        title={`Role: ${key}`} 
-                    />
-                  );
-              })}
-              {/* Custom Colors */}
-              {activePalette?.colors.custom.map((color, idx) => (
-                 <div 
-                    key={`cust-${idx}`} 
-                    className="w-full aspect-square rounded-full border" 
-                    style={{ backgroundColor: color }}
-                    title={`Custom ${idx+1}`} 
-                 />
-              ))}
-              {/* Linking Button */}
+
+            <div className="border-t my-2"></div>
+
+            {/* View Settings (NEW) */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-500 uppercase">View & Learning</label>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <button
+                    onClick={toggleFrench}
+                    className={clsx(
+                      "flex-1 flex items-center justify-center gap-2 p-2 rounded border text-xs font-medium transition-colors",
+                      uiSettings.showFrench ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-400"
+                    )}
+                  >
+                    {uiSettings.showFrench ? <Eye size={14} /> : <EyeOff size={14} />} French
+                  </button>
+                  <button
+                    onClick={toggleEnglish}
+                    className={clsx(
+                      "flex-1 flex items-center justify-center gap-2 p-2 rounded border text-xs font-medium transition-colors",
+                      uiSettings.showEnglish ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-gray-50 border-gray-200 text-gray-400"
+                    )}
+                  >
+                    {uiSettings.showEnglish ? <Eye size={14} /> : <EyeOff size={14} />} English
+                  </button>
+                </div>
+                <button
+                  onClick={toggleFocusMode}
+                  className="w-full flex items-center justify-center gap-2 p-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded hover:bg-indigo-100 text-xs font-medium"
+                >
+                  <Maximize2 size={14} /> Focus Mode
+                </button>
+              </div>
+            </div>
+
+            {/* Raw Input Toggle */}
+            <div className="pt-4 border-t">
               <button
-                onClick={() => setShowLinkingModal(true)}
-                className="p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 text-left transition-colors"
-                title="Manage Text Linking"
+                onClick={() => setShowInput(!showInput)}
+                className="w-full py-2 px-4 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm font-medium"
               >
-                 <div className="flex items-center gap-2 mb-1 text-indigo-700">
-                   <Link2 size={16} />
-                   <span className="font-bold text-sm">Link Text</span>
-                 </div>
-                 <div className="text-[10px] text-gray-500 leading-tight">
-                   Sync styles
-                 </div>
+                <Settings size={14} className="inline mr-2" />
+                {showInput ? "Hide Raw Inputs" : "Edit Raw Text"}
               </button>
             </div>
+
+            {showInput && (
+              <div className="space-y-4 animate-in slide-in-from-left duration-300">
+                <div>
+                  <label className="block text-xs font-medium mb-1">French Text</label>
+                  <textarea
+                    className="w-full h-32 p-2 border rounded text-sm font-serif"
+                    value={inputFrench}
+                    onChange={e => setInputFrench(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">English Text</label>
+                  <textarea
+                    className="w-full h-32 p-2 border rounded text-sm font-sans"
+                    value={inputEnglish}
+                    onChange={e => setInputEnglish(e.target.value)}
+                  />
+                </div>
+                <button
+                  onClick={handleParse}
+                  className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+                >
+                  Parse & Update Workspace
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Raw Input Toggle */}
-          <div className="pt-4 border-t">
+          <div className="p-4 border-t bg-gray-50">
             <button
-              onClick={() => setShowInput(!showInput)}
-              className="w-full py-2 px-4 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm font-medium"
+              onClick={handleExport}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded hover:from-gray-700 hover:to-gray-800"
             >
-              <Settings size={14} className="inline mr-2" />
-              {showInput ? "Hide Raw Inputs" : "Edit Raw Text"}
+              <Download size={18} />
+              Export PDF
             </button>
           </div>
-
-          {showInput && (
-            <div className="space-y-4 animate-in slide-in-from-left duration-300">
-              <div>
-                <label className="block text-xs font-medium mb-1">French Text</label>
-                <textarea
-                  className="w-full h-32 p-2 border rounded text-sm font-serif"
-                  value={inputFrench}
-                  onChange={e => setInputFrench(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1">English Text</label>
-                <textarea
-                  className="w-full h-32 p-2 border rounded text-sm font-sans"
-                  value={inputEnglish}
-                  onChange={e => setInputEnglish(e.target.value)}
-                />
-              </div>
-              <button
-                onClick={handleParse}
-                className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-              >
-                Parse & Update Workspace
-              </button>
-            </div>
-          )}
         </div>
-
-        <div className="p-4 border-t bg-gray-50">
-          <button
-            onClick={handleExport}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded hover:from-gray-700 hover:to-gray-800"
-          >
-            <Download size={18} />
-            Export PDF
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Center: Workspace */}
-      <Workspace />
+      <div className="flex-1 relative flex flex-col overflow-hidden">
+        {uiSettings.focusMode && (
+          <button 
+            onClick={toggleFocusMode}
+            className="absolute top-4 left-4 z-[100] p-2 bg-white/80 backdrop-blur shadow rounded-full hover:bg-white text-indigo-600 border border-indigo-100 no-print"
+            title="Exit Focus Mode"
+          >
+            <Minimize2 size={24} />
+          </button>
+        )}
+        <Workspace />
+      </div>
 
       {/* Right: Properties */}
-      <div className="no-print">
-        <PropertiesPanel />
-      </div>
+      {!uiSettings.focusMode && (
+        <div className="no-print">
+          <PropertiesPanel />
+        </div>
+      )}
 
       {showLinkingModal && (
         <LinkingModal 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useStore } from '../store';
 import { clsx } from 'clsx';
+import { Volume2 } from 'lucide-react';
 import { TextStyle } from '../types';
 
 interface WordGroupRendererProps {
@@ -184,15 +185,43 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
     <div
       key={`anchor-${group.id}`}
       id={`group-anchor-${group.id}`}
-      className="absolute opacity-0 pointer-events-none"
+      className="absolute group-anchor-container"
       style={{
-        bottom: '-5px',
+        bottom: '-18px',
         left: '50%',
-        width: '1px',
-        height: '1px'
+        transform: 'translateX(-50%)',
+        width: 'auto',
+        height: 'auto',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 30
       }}
       data-group-id={group.id}
-    />
+    >
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            // TTS Logic
+            const groupText = group.wordIds
+              .map(id => {
+                const parts = id.split('-');
+                const idx = parseInt(parts[parts.length-1]);
+                const words = text.split(/([a-zA-Z0-9À-ÿ'']+)/).filter(Boolean).filter(t => /^[a-zA-Z0-9À-ÿ'']+$/.test(t));
+                return words[idx] || '';
+              })
+              .join(' ');
+            
+            const utterance = new SpeechSynthesisUtterance(groupText);
+            utterance.lang = language === 'french' ? 'fr-FR' : 'en-US';
+            window.speechSynthesis.speak(utterance);
+          }}
+          className="p-0.5 bg-white shadow-sm border rounded-full text-indigo-400 hover:text-indigo-600 hover:shadow transition-all opacity-0 group-hover:opacity-100"
+          title="Speak Group"
+        >
+          <Volume2 size={10} />
+        </button>
+    </div>
   ));
 
   return (

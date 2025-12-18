@@ -83,7 +83,8 @@ export const PropertiesPanel: React.FC = () => {
     removePalette,
     setActivePalette,
     addTemplate,
-    removeTemplate
+    removeTemplate,
+    toggleLayoutMode
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'theme' | 'palette' | 'layout' | 'templates'>('theme');
@@ -220,14 +221,57 @@ export const PropertiesPanel: React.FC = () => {
                     ))}
                   </select>
               </div>
+
+              <div className="border-t pt-4">
+                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Recommended Pairs</h4>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { name: 'Classic Scholar', french: "'Playfair Display', serif", english: "'Inter', sans-serif" },
+                    { name: 'Modern Reader', french: "'Montserrat', sans-serif", english: "'Merriweather', serif" },
+                    { name: 'Clean Academic', french: "'Roboto', sans-serif", english: "'Times New Roman', serif" },
+                    { name: 'Editorial', french: "'Georgia', serif", english: "'Lato', sans-serif" }
+                  ].map(pair => (
+                    <button
+                      key={pair.name}
+                      onClick={() => updateTheme({ frenchFontFamily: pair.french, englishFontFamily: pair.english })}
+                      className="text-left p-2 bg-white border rounded hover:border-blue-400 hover:shadow-sm transition-all text-xs group"
+                    >
+                      <div className="font-bold text-gray-700">{pair.name}</div>
+                      <div className="flex gap-2 text-[10px] text-gray-400 mt-1">
+                        <span style={{ fontFamily: pair.french }}>French</span>
+                        <span>•</span>
+                        <span style={{ fontFamily: pair.english }}>English</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
           {activeTab === 'layout' && (
             <div className="space-y-4">
               <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Page Layout</h3>
+
+              <div className="border-t pt-2 mt-2">
+                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Display Mode</h4>
+                <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-lg">
+                  <button
+                    onClick={toggleLayoutMode}
+                    className={`py-1.5 px-3 text-[10px] uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-2 ${theme.layoutMode === 'side-by-side' ? 'bg-white shadow-sm text-blue-600 font-bold' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Side-by-Side
+                  </button>
+                  <button
+                    onClick={toggleLayoutMode}
+                    className={`py-1.5 px-3 text-[10px] uppercase tracking-wider rounded-md transition-all flex items-center justify-center gap-2 ${theme.layoutMode === 'interlinear' ? 'bg-white shadow-sm text-blue-600 font-bold' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Interlinear
+                  </button>
+                </div>
+              </div>
               
-              <div>
+              <div className="pt-4">
                 <label className="block text-xs text-gray-500 mb-1">Paper Size</label>
                 <select
                   className="w-full border rounded p-2 text-sm"
