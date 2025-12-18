@@ -325,6 +325,10 @@ export const useStore = create<StoreState>((set, get) => ({
   historyIndex: -1,
   canUndo: false,
   canRedo: false,
+  isHistoryFull: false, // N25: Indicates when history limit is reached
+
+  // Search highlight state (N14)
+  highlightedLineId: null as string | null,
 
   selectedElementId: null,
   selectedElementType: null,
@@ -336,27 +340,33 @@ export const useStore = create<StoreState>((set, get) => ({
       pages: [...state.pages, { id: `page-${generateId()}`, lines: [] }]
   })),
 
-  removePage: (id) => set((state) => ({
+  removePage: (id) => {
+    get().saveToHistory();
+    return set((state) => ({
       pages: state.pages.filter(p => p.id !== id)
-  })),
+    }));
+  },
 
   setCurrentPageIndex: (index) => set({ currentPageIndex: index }),
 
   // Rich Text Actions
-  updateLineStyles: (lineId, language, styles) => set((state) => {
-    const updatedPages = state.pages.map(page => ({
-        ...page,
-        lines: page.lines.map(line => {
-            if (line.id === lineId) {
-                return language === 'french' 
-                   ? { ...line, frenchStyles: styles }
-                   : { ...line, englishStyles: styles };
-            }
-            return line;
-        })
-    }));
-    return { pages: updatedPages };
-  }),
+  updateLineStyles: (lineId, language, styles) => {
+    get().saveToHistory();
+    return set((state) => {
+      const updatedPages = state.pages.map(page => ({
+          ...page,
+          lines: page.lines.map(line => {
+              if (line.id === lineId) {
+                  return language === 'french' 
+                     ? { ...line, frenchStyles: styles }
+                     : { ...line, englishStyles: styles };
+              }
+              return line;
+          })
+      }));
+      return { pages: updatedPages };
+    });
+  },
 
   // Legacy highlight actions
   addHighlight: (highlight) => set((state) => ({
@@ -373,52 +383,70 @@ export const useStore = create<StoreState>((set, get) => ({
   })),
 
   // Word Group actions
-  addWordGroup: (group) => set((state) => ({
-    wordGroups: [...state.wordGroups, { ...group, id: generateId() }]
-  })),
+  addWordGroup: (group) => {
+    // Save to history before mutation for undo support
+    get().saveToHistory();
+    set((state) => ({
+      wordGroups: [...state.wordGroups, { ...group, id: generateId() }]
+    }));
+  },
 
   updateWordGroup: (id, updates) => set((state) => ({
     wordGroups: state.wordGroups.map(g => g.id === id ? { ...g, ...updates } : g)
   })),
 
-  removeWordGroup: (id) => set((state) => {
-    // Also remove any arrows that reference this group
-    const updatedArrows = state.arrows.filter(a => 
-      !a.sourceGroupIds.includes(id) && !a.targetGroupIds.includes(id)
-    );
-    return {
-      wordGroups: state.wordGroups.filter(g => g.id !== id),
-      arrows: updatedArrows,
-      selectedElementId: state.selectedElementId === id ? null : state.selectedElementId
-    };
-  }),
+  removeWordGroup: (id) => {
+    // Save to history before mutation for undo support
+    get().saveToHistory();
+    set((state) => {
+      // Also remove any arrows that reference this group
+      const updatedArrows = state.arrows.filter(a => 
+        !a.sourceGroupIds.includes(id) && !a.targetGroupIds.includes(id)
+      );
+      return {
+        wordGroups: state.wordGroups.filter(g => g.id !== id),
+        arrows: updatedArrows,
+        selectedElementId: state.selectedElementId === id ? null : state.selectedElementId
+      };
+    });
+  },
 
   // Arrow actions
-  addArrow: (arrow) => set((state) => ({
-    arrows: [...state.arrows, { 
-      ...arrow, 
-      id: generateId(),
-      // Ensure new arrow format defaults
-      sourceGroupIds: arrow.sourceGroupIds || [],
-      targetGroupIds: arrow.targetGroupIds || [],
-      style: arrow.style || 'solid',
-      strokeWidth: arrow.strokeWidth || 2,
-      headStyle: arrow.headStyle || 'arrow',
-      curvature: arrow.curvature ?? 0.5
-    }]
-  })),
+  addArrow: (arrow) => {
+    // Save to history before mutation for undo support
+    get().saveToHistory();
+    set((state) => ({
+      arrows: [...state.arrows, { 
+        ...arrow, 
+        id: generateId(),
+        // Ensure new arrow format defaults
+        sourceGroupIds: arrow.sourceGroupIds || [],
+        targetGroupIds: arrow.targetGroupIds || [],
+        style: arrow.style || 'solid',
+        strokeWidth: arrow.strokeWidth || 2,
+        headStyle: arrow.headStyle || 'arrow',
+        curvature: arrow.curvature ?? 0.5
+      }]
+    }));
+  },
 
   updateArrow: (id, updates) => set((state) => ({
     arrows: state.arrows.map(a => a.id === id ? { ...a, ...updates } : a)
   })),
 
-  removeArrow: (id) => set((state) => ({
-    arrows: state.arrows.filter(a => a.id !== id),
-    selectedElementId: state.selectedElementId === id ? null : state.selectedElementId
-  })),
+  removeArrow: (id) => {
+    // Save to history before mutation for undo support
+    get().saveToHistory();
+    set((state) => ({
+      arrows: state.arrows.filter(a => a.id !== id),
+      selectedElementId: state.selectedElementId === id ? null : state.selectedElementId
+    }));
+  },
 
   // Sidebar actions
-  addSidebarCard: (card) => set((state) => {
+  addSidebarCard: (card) => {
+    get().saveToHistory();
+    set((state) => {
       // Auto-assign color based on type if not provided
       const type = card.type as AnecdoteType;
       const activePalette = state.palettes.find(p => p.id === state.theme.activePaletteId) || DEFAULT_PALETTE;
@@ -427,15 +455,19 @@ export const useStore = create<StoreState>((set, get) => ({
       return {
         sidebars: [...state.sidebars, { ...card, id: generateId(), color }]
       };
-  }),
+    });
+  },
 
   updateSidebarCard: (id, updates) => set((state) => ({
     sidebars: state.sidebars.map(s => s.id === id ? { ...s, ...updates } : s)
   })),
 
-  removeSidebarCard: (id) => set((state) => ({
-    sidebars: state.sidebars.filter(s => s.id !== id)
-  })),
+  removeSidebarCard: (id) => {
+    get().saveToHistory();
+    set((state) => ({
+      sidebars: state.sidebars.filter(s => s.id !== id)
+    }));
+  },
 
   // Theme & Palette actions
   updateTheme: (theme) => set((state) => ({
@@ -666,7 +698,10 @@ export const useStore = create<StoreState>((set, get) => ({
       arrows: state.arrows,
       sidebars: state.sidebars,
       theme: state.theme,
-      palettes: state.palettes
+      palettes: state.palettes,
+      linkedPairs: state.linkedPairs,
+      templates: state.templates,
+      uiSettings: state.uiSettings
     };
 
     try {
@@ -695,6 +730,11 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   importFromCSV: (csvString) => {
+    const confirmed = window.confirm(
+      'Importing CSV will clear all existing word groups, arrows, and annotations. Continue?'
+    );
+    if (!confirmed) return;
+    
     Papa.parse(csvString, {
       header: true,
       skipEmptyLines: true,
@@ -783,24 +823,27 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ pages, highlights: [], wordGroups: [], arrows: [], sidebars: [] });
   },
 
-  removeLine: (pageId, lineId) => set((state) => ({
-    pages: state.pages.map(p => {
-      if (p.id !== pageId) return p;
-      return {
-        ...p,
-        lines: p.lines.filter(l => l.id !== lineId)
-      };
-    })
-  })),
+  removeLine: (pageId, lineId) => {
+    get().saveToHistory();
+    return set((state) => ({
+      pages: state.pages.map(p => {
+        if (p.id !== pageId) return p;
+        return {
+          ...p,
+          lines: p.lines.filter(l => l.id !== lineId)
+        };
+      })
+    }));
+  },
 
   updatePage: (id, updates) => set((state) => ({
     pages: state.pages.map(p => p.id === id ? { ...p, ...updates } : p)
   })),
 
-  reorderLines: (pageId, fromIndex, toIndex) => set((state) => {
-    if (fromIndex === toIndex) return state;
-    
-    return {
+  reorderLines: (pageId, fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return;
+    get().saveToHistory();
+    return set((state) => ({
       pages: state.pages.map(page => {
         if (page.id !== pageId) return page;
         
@@ -810,8 +853,8 @@ export const useStore = create<StoreState>((set, get) => ({
         
         return { ...page, lines: newLines };
       })
-    };
-  }),
+    }));
+  },
 
   setSelectedElement: (id, type) => set({ selectedElementId: id, selectedElementType: type }),
 
@@ -929,12 +972,6 @@ export const useStore = create<StoreState>((set, get) => ({
     }));
   },
 
-  confirmArrowTarget: (targetGroupIds: string[]) => { 
-      const state = get();
-      // Just add target, let component handle the "Ready" state to show menu
-      state.addArrowTargetGroup(targetGroupIds[0]); 
-  },
-
   cancelArrowCreation: () => set({
     arrowCreation: { sourceGroupIds: [], targetGroupIds: [], isSelectingTarget: false, lastInteractedGroupId: null }
   }),
@@ -988,7 +1025,8 @@ export const useStore = create<StoreState>((set, get) => ({
     newHistory.push(snapshot);
     
     // Limit history size
-    if (newHistory.length > MAX_HISTORY_SIZE) {
+    const wasHistoryFull = newHistory.length > MAX_HISTORY_SIZE;
+    if (wasHistoryFull) {
       newHistory.shift();
     }
     
@@ -996,7 +1034,8 @@ export const useStore = create<StoreState>((set, get) => ({
       history: newHistory,
       historyIndex: newHistory.length - 1,
       canUndo: newHistory.length > 0,
-      canRedo: false
+      canRedo: false,
+      isHistoryFull: newHistory.length >= MAX_HISTORY_SIZE
     };
   }),
 

@@ -1,0 +1,61 @@
+{
+  "metadata": {
+    "title": "t",
+    "author": "",
+    "difficultyLevel": "Intermediate",
+    "year": 2025
+  },
+  "pages": [
+    {
+      "id": "page-1",
+      "lines": []
+    }
+  ],
+  "highlights": [],
+  "wordGroups": [],
+  "arrows": [],
+  "sidebars": [],
+  "theme": {
+    "frenchFontFamily": "serif",
+    "englishFontFamily": "sans-serif",
+    "fontSize": "18px",
+    "lineHeight": "1.6",
+    "highlightColors": [
+      "#fef3c7",
+      "#dcfce7",
+      "#dbeafe",
+      "#fce7f3"
+    ],
+    "activePaletteId": "default-palette",
+    "layoutMode": "side-by-side"
+  },
+  "palettes": [
+    {
+      "id": "default-palette",
+      "name": "Modern Default",
+      "colors": {
+        "subject": "#93c5fd",
+        "verb": "#fca5a5",
+        "complement": "#86efac",
+        "article": "#fde047",
+        "adjective": "#c4b5fd",
+        "adverb": "#fdba74",
+        "text": "#1f2937",
+        "grammar": "#fef3c7",
+        "spoken": "#dbeafe",
+        "history": "#fee2e2",
+        "falseFriend": "#ffedd5",
+        "pronunciation": "#f3e8ff",
+        "vocab": "#dcfce7",
+        "custom": [
+          "#e5e7eb",
+          "#d1d5db",
+          "#9ca3af",
+          "#4b5563",
+          "#1f2937"
+        ]
+      },
+      "isDefault": true
+    }
+  ]
+}

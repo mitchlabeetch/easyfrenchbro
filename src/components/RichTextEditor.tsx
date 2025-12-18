@@ -147,12 +147,28 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
          </div>
       </div>
 
-      <button
-        onClick={handleSave}
-        className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-2"
-      >
-        <Save size={16} /> Save Changes
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={handleSave}
+          className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-2"
+        >
+          <Save size={16} /> Save
+        </button>
+        <button
+          onClick={() => {
+            // Map temp IDs back to real relative IDs and trigger sync
+            const cleanStyles = styles.map(s => ({
+                ...s,
+                wordId: s.wordId.replace('temp-', '')
+            }));
+            onSave(text, cleanStyles, true); // shouldSync = true
+          }}
+          className="flex-1 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center gap-2"
+          title="Save and sync styles to linked words in the other language"
+        >
+          <Save size={16} /> Sync & Save
+        </button>
+      </div>
     </div>
   );
 };

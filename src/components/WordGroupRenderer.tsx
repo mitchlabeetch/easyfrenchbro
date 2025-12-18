@@ -23,7 +23,10 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
     startArrowFromGroup,
     addArrowTargetGroup,
     selectedElementId,
-    setSelectedElement
+    setSelectedElement,
+    theme,
+    highlightSelection,
+    addToHighlightSelection
   } = useStore();
 
   // Split text into words and non-words (punctuation/spaces)
@@ -79,6 +82,9 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
            }
         }
       }
+    } else if (selectionMode === 'highlight') {
+      // Legacy highlight mode support
+      addToHighlightSelection(wordId, language, lineId);
     } else if (selectionMode === 'none') {
       const group = wordIdToGroup.get(wordId);
       if (group) {
@@ -87,6 +93,14 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
         setSelectedElement(null, null);
       }
     }
+  };
+
+  // Check if word is selected in highlight mode
+  const isInHighlightSelection = (wordId: string) => {
+    if (highlightSelection.lineId !== lineId) return false;
+    return language === 'french'
+      ? highlightSelection.frenchIds.includes(wordId)
+      : highlightSelection.englishIds.includes(wordId);
   };
 
   const handleWordDoubleClick = (e: React.MouseEvent) => {
@@ -131,6 +145,7 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
     const wordId = `${lineId}-${language}-${wordIndex}`;
     const group = wordIdToGroup.get(wordId);
     const inSelection = isInCurrentSelection(wordId);
+    const inHighlight = isInHighlightSelection(wordId); // Check if selected in highlight mode
     const isSource = group && isArrowSource(group.id);
     const isTarget = group && isArrowTarget(group.id); // Highlight targets too
     const currentWordIndex = wordIndex;
@@ -155,8 +170,10 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
           "hover:bg-gray-100 rounded-sm px-0.5 -mx-0.5 z-10", // Negative margin to overlap spacer slightly
           // In a group - show underline styling
           group && "group-word",
-          // Currently being selected
+          // Currently being selected (word group mode)
           inSelection && "bg-yellow-200 ring-1 ring-yellow-400",
+          // Highlight mode selection
+          inHighlight && "bg-orange-200 ring-1 ring-orange-400",
           // Arrow interaction
           isSource && "ring-2 ring-blue-500 bg-blue-50",
           isTarget && "ring-2 ring-green-500 bg-green-50",
@@ -224,11 +241,14 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
     </div>
   ));
 
+  // Get font family from theme
+  const fontFamily = language === 'french' ? theme.frenchFontFamily : theme.englishFontFamily;
+
   return (
-    <div className={clsx(
-      "relative inline-block w-full leading-loose", // Increased leading for arrows
-      language === 'french' ? "font-serif" : "font-sans"
-    )}>
+    <div 
+      className="relative inline-block w-full leading-loose"
+      style={{ fontFamily }}
+    >
       <div className="relative whitespace-pre-wrap">
         {renderedTokens}
       </div>

@@ -133,6 +133,25 @@ app.get('/projects/:name', (req, res) => {
     res.status(500).send('Error loading project');
   }
 });
+
+// Delete project
+app.delete('/projects/:name', (req, res) => {
+  try {
+    const { name } = req.params;
+    const safeName = name.replace(/[^a-z0-9\-_]/gi, '_');
+    const filePath = path.join(PROJECTS_DIR, `${safeName}.json`);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).send('Project not found');
+    }
+    
+    fs.unlinkSync(filePath);
+    res.json({ success: true, message: `Project "${name}" deleted` });
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    res.status(500).send('Error deleting project');
+  }
+});
 // --- Palette Endpoints ---
 
 // Get all palettes

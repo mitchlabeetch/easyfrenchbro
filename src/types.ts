@@ -70,6 +70,7 @@ export interface WordGroup {
   type?: WordGroupType; // For quick coloring based on grammar role
   color: string; // Underline/highlight color
   label?: string; // Optional label (e.g., "subject", "S1")
+  anecdoteType?: AnecdoteType; // For anecdote categorization
 }
 
 // ENHANCED: Arrow Connector - connects word groups, not individual words
@@ -138,7 +139,7 @@ export interface ColorPalette {
 }
 
 // NEW: Page Layout Settings
-export type PageSize = 'A4' | 'Letter' | 'Legal' | 'Custom';
+export type PageSize = 'A4' | 'A3' | 'A5' | 'A6' | 'A7' | 'B4' | 'B5' | 'Letter' | 'Legal' | 'Tabloid' | 'Executive' | 'Statement' | 'HalfLetter' | 'Custom';
 export type PageOrientation = 'portrait' | 'landscape';
 
 export interface PageMargins {
@@ -177,6 +178,7 @@ export interface ThemeConfig {
   pageLayout?: PageLayout;
   activePaletteId?: string;
   layoutMode: LayoutMode;
+  pageBackground?: string; // Page background color (N24)
 }
 
 // NEW: UI Settings
@@ -187,12 +189,36 @@ export interface UISettings {
   darkMode: boolean;
 }
 
+// Template Data Types
+export interface ArrowTemplateData {
+  style: ArrowStyle;
+  headStyle: ArrowHeadStyle;
+  color: string;
+  strokeWidth: number;
+  curvature: number;
+}
+
+export interface LayoutTemplateData {
+  pageLayout?: PageLayout;
+  fontSize?: string;
+  lineHeight?: string;
+  frenchFontFamily?: string;
+  englishFontFamily?: string;
+  layoutMode?: LayoutMode;
+}
+
+export interface AnecdoteTemplateData {
+  colors: Partial<Record<AnecdoteType, string>>;
+}
+
+export type TemplateData = ArrowTemplateData | LayoutTemplateData | AnecdoteTemplateData;
+
 // Template Interface
 export interface Template {
   id: string;
   name: string;
   type: 'layout' | 'arrow' | 'project' | 'anecdote';
-  data: any; // Flexible data payload depending on type
+  data: TemplateData;
 }
 
 export interface ProjectState {

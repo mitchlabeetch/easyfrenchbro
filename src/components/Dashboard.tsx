@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { FolderOpen, FilePlus, Loader, Clock } from 'lucide-react';
+import { FolderOpen, FilePlus, Loader, Clock, Trash2, Edit2, Check, X } from 'lucide-react';
 
 interface DashboardProps {
   onOpenProject: (name: string) => void;
@@ -12,6 +12,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreatePro
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newProjectName, setNewProjectName] = useState('');
+  const [deletingProject, setDeletingProject] = useState<string | null>(null);
 
   useEffect(() => {
     loadProjects();
@@ -32,6 +33,70 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreatePro
   const handleCreate = () => {
     if (!newProjectName.trim()) return;
     onCreateProject(newProjectName);
+  };
+
+  const handleDelete = async (name: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent opening project
+    
+    if (deletingProject === name) {
+      // Second click - confirm deletion
+      try {
+        const response = await fetch(`http://localhost:3001/projects/${encodeURIComponent(name)}`, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          await loadProjects(); // Refresh list
+        } else {
+          console.error('Failed to delete project');
+        }
+      } catch (err) {
+        console.error('Error deleting project:', err);
+      }
+      setDeletingProject(null);
+    } else {
+      // First click - show confirmation
+      setDeletingProject(name);
+      // Auto-reset after 3 seconds
+      setTimeout(() => setDeletingProject(null), 3000);
+    }
+  };
+
+  // Project rename (N22)
+  const [renamingProject, setRenamingProject] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  
+  const handleRename = async (oldName: string) => {
+    if (!renameValue.trim() || renameValue === oldName) {
+      setRenamingProject(null);
+      return;
+    }
+    
+    try {
+      const response = await fetch(`http://localhost:3001/projects/${encodeURIComponent(oldName)}/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newName: renameValue.trim() })
+      });
+      if (response.ok) {
+        await loadProjects();
+      } else {
+        // Fallback: copy and delete approach
+        const getRes = await fetch(`http://localhost:3001/projects/${encodeURIComponent(oldName)}`);
+        if (getRes.ok) {
+          const projectData = await getRes.json();
+          await fetch(`http://localhost:3001/projects/${encodeURIComponent(renameValue.trim())}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(projectData)
+          });
+          await fetch(`http://localhost:3001/projects/${encodeURIComponent(oldName)}`, { method: 'DELETE' });
+          await loadProjects();
+        }
+      }
+    } catch (err) {
+      console.error('Error renaming project:', err);
+    }
+    setRenamingProject(null);
   };
 
   return (
@@ -88,19 +153,72 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreatePro
                         </div>
                     ) : (
                         projects.map(p => (
-                            <button
+                            <div
                                 key={p.name}
-                                onClick={() => onOpenProject(p.name)}
-                                className="w-full flex items-center justify-between p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-all text-left group"
+                                className="w-full flex items-center justify-between p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-all text-left group relative"
                             >
-                                <div>
-                                    <div className="font-medium text-gray-700 group-hover:text-blue-700">{p.name}</div>
-                                    <div className="text-xs text-gray-400">
-                                       Last edited: {new Intl.DateTimeFormat('fr-FR').format(new Date(p.updatedAt))}
-                                    </div>
+                                {renamingProject === p.name ? (
+                                  <div className="flex-1 flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="text"
+                                      value={renameValue}
+                                      onChange={(e) => setRenameValue(e.target.value)}
+                                      onKeyDown={(e) => e.key === 'Enter' && handleRename(p.name)}
+                                      className="flex-1 p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                      autoFocus
+                                    />
+                                    <button 
+                                      onClick={() => handleRename(p.name)}
+                                      className="p-2 text-green-600 hover:bg-green-50 rounded"
+                                      title="Save"
+                                    >
+                                      <Check size={16} />
+                                    </button>
+                                    <button 
+                                      onClick={() => setRenamingProject(null)}
+                                      className="p-2 text-gray-400 hover:bg-gray-100 rounded"
+                                      title="Cancel"
+                                    >
+                                      <X size={16} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                      onClick={() => onOpenProject(p.name)}
+                                      className="flex-1 text-left"
+                                  >
+                                      <div className="font-medium text-gray-700 group-hover:text-blue-700">{p.name}</div>
+                                      <div className="text-xs text-gray-400">
+                                         Last edited: {new Intl.DateTimeFormat('fr-FR').format(new Date(p.updatedAt))}
+                                      </div>
+                                  </button>
+                                )}
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setRenamingProject(p.name);
+                                          setRenameValue(p.name);
+                                        }}
+                                        className="p-2 rounded-lg text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                                        title="Rename project"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleDelete(p.name, e)}
+                                        className={`p-2 rounded-lg transition-all ${
+                                            deletingProject === p.name 
+                                                ? 'bg-red-500 text-white' 
+                                                : 'text-gray-300 hover:text-red-500 hover:bg-red-50'
+                                        }`}
+                                        title={deletingProject === p.name ? 'Click again to confirm deletion' : 'Delete project'}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                    <FolderOpen size={18} className="text-gray-300 group-hover:text-blue-500" />
                                 </div>
-                                <FolderOpen size={18} className="text-gray-300 group-hover:text-blue-500" />
-                            </button>
+                            </div>
                         ))
                     )}
                 </div>

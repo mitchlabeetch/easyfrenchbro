@@ -295,32 +295,7 @@ function App() {
     window.print();
   };
 
-  const handleExport = async () => {
-    try {
-      const response = await fetch('/export-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: window.location.href,
-          options: { format: 'A4' }
-        })
-      });
 
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = "layout-export.pdf";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-    } catch (e) {
-      console.error("Export failed", e);
-      alert("Export failed. Make sure the server is running (npm run server).");
-    }
-  };
 
   // Legacy highlight confirm
   const confirmHighlight = () => {
@@ -552,6 +527,14 @@ function App() {
                 <Highlighter size={16} />
                 <span>Highlight</span>
               </button>
+              <button
+                onClick={() => setShowLinkingModal(true)}
+                className="p-2 border rounded flex flex-col items-center gap-1 text-xs hover:bg-gray-50 bg-green-50 border-green-200 text-green-700"
+                title="Link French/English words for synchronized styling"
+              >
+                <Languages size={16} />
+                <span>Link Words</span>
+              </button>
             </div>
           </div>
 
@@ -564,18 +547,30 @@ function App() {
                   const paletteColors = activePalette?.colors;
                   const color = paletteColors && type !== 'custom' ? paletteColors[type] : '#888888';
                   const isActive = selectedWordType === type;
+                  
+                  // Calculate contrasting text color for better readability
+                  const getContrastColor = (hexColor: string) => {
+                    if (typeof hexColor !== 'string') return '#000000';
+                    const hex = hexColor.replace('#', '');
+                    const r = parseInt(hex.substr(0, 2), 16);
+                    const g = parseInt(hex.substr(2, 2), 16);
+                    const b = parseInt(hex.substr(4, 2), 16);
+                    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                    return luminance > 0.5 ? '#000000' : '#ffffff';
+                  };
+                  
                   return (
                     <button
                       key={type}
                       onClick={() => handleWordTypeSelect(type)}
                       className={clsx(
                         "p-2 border rounded text-xs font-medium transition-all text-left flex items-center gap-2",
-                        isActive && "ring-2 ring-blue-500"
+                        isActive && "ring-2 ring-offset-1 ring-blue-500 shadow-md"
                       )}
                       style={{ 
                         backgroundColor: isActive ? color : `${color}20`,
                         borderColor: color,
-                        color: typeof color === 'string' ? color : undefined
+                        color: isActive ? getContrastColor(color as string) : (typeof color === 'string' ? color : undefined)
                       }}
                       title={label}
                     >
@@ -662,7 +657,23 @@ function App() {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                    <label className="text-xs font-bold text-gray-500 uppercase">Palette: {activePalette?.name}</label>
-                   <span className="text-[10px] text-blue-500 cursor-help" title="Manage Palettes in Right Panel">Manage →</span>
+                   <button 
+                     onClick={() => {
+                       // Scroll to right panel and highlight palette tab
+                       const paletteTab = document.querySelector('[data-tab="palette"]');
+                       if (paletteTab) {
+                         (paletteTab as HTMLButtonElement).click();
+                       }
+                       // Alternatively, scroll the properties panel into view
+                       const rightPanel = document.querySelector('.no-print:last-child');
+                       if (rightPanel) {
+                         rightPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                       }
+                     }}
+                     className="text-[10px] text-blue-500 hover:text-blue-700 hover:underline cursor-pointer transition-colors"
+                   >
+                     Manage →
+                   </button>
               </div>
               <div className="grid grid-cols-6 gap-1 bg-gray-50 p-2 rounded border">
                 {Object.entries(activePalette?.colors || {}).map(([key, color]) => {
@@ -767,15 +778,6 @@ function App() {
             )}
           </div>
 
-          <div className="p-4 border-t bg-gray-50">
-            <button
-              onClick={handleExport}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded hover:from-gray-700 hover:to-gray-800"
-            >
-              <Download size={18} />
-              Export PDF
-            </button>
-          </div>
         </div>
       )}
 

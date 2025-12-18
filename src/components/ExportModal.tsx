@@ -117,7 +117,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
               )}
             >
               <FileText size={24} />
-              <span className="text-xs font-medium">PDF</span>
+              <span className="text-xs font-medium">PDF (Print)</span>
             </button>
             <button
               onClick={() => setSelectedFormat('print')}

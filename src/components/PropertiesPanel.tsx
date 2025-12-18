@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
-import { Trash2, Palette, Layout, Settings, Plus, Copy, RefreshCw } from 'lucide-react';
+import { Trash2, Palette, Layout, Settings, Plus, Copy, RefreshCw, Check } from 'lucide-react';
 import { ArrowStyle, ArrowHeadStyle, WordGroupType, PageSize, AnecdoteType } from '../types';
 
 const WORD_TYPE_LABELS: Record<WordGroupType, string> = {
@@ -36,9 +36,19 @@ const ARROW_HEAD_STYLES: { value: ArrowHeadStyle; label: string }[] = [
 ];
 
 const PAGE_SIZES: { value: PageSize; label: string; width: string; height: string }[] = [
-  { value: 'A4', label: 'A4 (210x297mm)', width: '210mm', height: '297mm' },
-  { value: 'Letter', label: 'Letter (8.5x11")', width: '215.9mm', height: '279.4mm' },
-  { value: 'Legal', label: 'Legal (8.5x14")', width: '215.9mm', height: '355.6mm' },
+  { value: 'A4', label: 'A4 (210×297mm)', width: '210mm', height: '297mm' },
+  { value: 'A3' as PageSize, label: 'A3 (297×420mm)', width: '297mm', height: '420mm' },
+  { value: 'A5' as PageSize, label: 'A5 (148×210mm)', width: '148mm', height: '210mm' },
+  { value: 'A6' as PageSize, label: 'A6 (105×148mm)', width: '105mm', height: '148mm' },
+  { value: 'A7' as PageSize, label: 'A7 (74×105mm)', width: '74mm', height: '105mm' },
+  { value: 'B4' as PageSize, label: 'B4 (250×353mm)', width: '250mm', height: '353mm' },
+  { value: 'B5' as PageSize, label: 'B5 (176×250mm)', width: '176mm', height: '250mm' },
+  { value: 'Letter', label: 'Letter (8.5×11")', width: '215.9mm', height: '279.4mm' },
+  { value: 'Legal', label: 'Legal (8.5×14")', width: '215.9mm', height: '355.6mm' },
+  { value: 'Tabloid' as PageSize, label: 'Tabloid (11×17")', width: '279.4mm', height: '431.8mm' },
+  { value: 'Executive' as PageSize, label: 'Executive (7.25×10.5")', width: '184.15mm', height: '266.7mm' },
+  { value: 'Statement' as PageSize, label: 'Statement (5.5×8.5")', width: '139.7mm', height: '215.9mm' },
+  { value: 'HalfLetter' as PageSize, label: 'Half Letter (5.5×8.5")', width: '139.7mm', height: '215.9mm' },
   { value: 'Custom', label: 'Custom', width: '210mm', height: '297mm' }
 ];
 
@@ -107,8 +117,7 @@ export const PropertiesPanel: React.FC = () => {
 
   const handleCreateTemplate = () => {
     if(!newTemplateName.trim()) return;
-    // Basic implementation: Create a placeholder template
-    // Ideally this would grab current state (e.g. arrow style)
+    // Create template based on type, capturing current state
     let templateData = {};
     if (templateType === 'arrow') {
         templateData = {
@@ -118,6 +127,35 @@ export const PropertiesPanel: React.FC = () => {
             strokeWidth: 2,
             curvature: 0.5
         };
+    } else if (templateType === 'layout') {
+        // Save current page layout settings
+        templateData = {
+            pageLayout: theme.pageLayout || {
+                size: 'A4',
+                width: '210mm',
+                height: '297mm',
+                margins: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+                orientation: 'portrait'
+            },
+            fontSize: theme.fontSize,
+            lineHeight: theme.lineHeight,
+            frenchFontFamily: theme.frenchFontFamily,
+            englishFontFamily: theme.englishFontFamily,
+            layoutMode: theme.layoutMode
+        };
+    } else if (templateType === 'anecdote') {
+        // Save current palette anecdote colors
+        const activePalette = palettes.find(p => p.id === theme.activePaletteId);
+        templateData = {
+            colors: activePalette ? {
+                grammar: activePalette.colors.grammar,
+                spoken: activePalette.colors.spoken,
+                history: activePalette.colors.history,
+                falseFriend: activePalette.colors.falseFriend,
+                pronunciation: activePalette.colors.pronunciation,
+                vocab: activePalette.colors.vocab
+            } : {}
+        };
     }
     
     addTemplate({
@@ -126,6 +164,31 @@ export const PropertiesPanel: React.FC = () => {
         data: templateData
     });
     setNewTemplateName('');
+  };
+
+  const applyTemplate = (template: typeof templates[0]) => {
+    if (template.type === 'arrow') {
+      // Set the selected color for next arrow creation
+      const data = template.data as { color?: string; style?: string; headStyle?: string; strokeWidth?: number; curvature?: number };
+      useStore.setState({ selectedColor: data.color || '#000000' });
+    } else if (template.type === 'layout') {
+      // Apply layout settings to theme
+      const data = template.data as { pageLayout?: any; fontSize?: string; lineHeight?: string; frenchFontFamily?: string; englishFontFamily?: string; layoutMode?: any };
+      updateTheme({
+        pageLayout: data.pageLayout,
+        fontSize: data.fontSize,
+        lineHeight: data.lineHeight,
+        frenchFontFamily: data.frenchFontFamily,
+        englishFontFamily: data.englishFontFamily,
+        layoutMode: data.layoutMode
+      });
+    } else if (template.type === 'anecdote' && activePalette) {
+      // Apply anecdote colors to active palette
+      const data = template.data as { colors?: Record<string, string> };
+      updatePalette(activePalette.id, {
+        colors: { ...activePalette.colors, ...data.colors }
+      });
+    }
   };
 
   // No selection - show Global Settings
@@ -148,6 +211,7 @@ export const PropertiesPanel: React.FC = () => {
           <button
             className={`flex-1 p-3 text-xs font-medium flex flex-col items-center gap-1 ${activeTab === 'palette' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
             onClick={() => setActiveTab('palette')}
+            data-tab="palette"
           >
             <Palette size={16} /> Palette
           </button>
@@ -457,8 +521,8 @@ export const PropertiesPanel: React.FC = () => {
                         onChange={(e) => setTemplateType(e.target.value as any)}
                       >
                           <option value="arrow">Arrow Style</option>
-                          <option value="layout" disabled>Page Layout (Coming Soon)</option>
-                          <option value="anecdote" disabled>Anecdote (Coming Soon)</option>
+                          <option value="layout">Page Layout</option>
+                          <option value="anecdote">Anecdote Colors</option>
                       </select>
                       <button
                         onClick={handleCreateTemplate}
@@ -480,12 +544,22 @@ export const PropertiesPanel: React.FC = () => {
                                      <div className="font-semibold text-sm">{t.name}</div>
                                      <div className="text-[10px] text-gray-400 uppercase">{t.type}</div>
                                  </div>
-                                 <button 
-                                   onClick={() => removeTemplate(t.id)}
-                                   className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                 >
-                                     <Trash2 size={14} />
-                                 </button>
+                                 <div className="flex gap-1">
+                                   <button 
+                                     onClick={() => applyTemplate(t)}
+                                     className="text-gray-300 hover:text-green-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                     title="Apply Template"
+                                   >
+                                       <Check size={14} />
+                                   </button>
+                                   <button 
+                                     onClick={() => removeTemplate(t.id)}
+                                     className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                     title="Delete Template"
+                                   >
+                                       <Trash2 size={14} />
+                                   </button>
+                                 </div>
                              </div>
                          ))
                      )}

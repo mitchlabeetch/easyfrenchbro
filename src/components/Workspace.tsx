@@ -28,7 +28,8 @@ export const Workspace: React.FC = () => {
       cancelArrowCreation,
       updateLineStyles,
       uiSettings,
-      updateLineProperty
+      updateLineProperty,
+      reorderLines
   } = useStore();
 
 
@@ -49,15 +50,45 @@ export const Workspace: React.FC = () => {
       position: { x: 0, y: 0 }
   });
 
+  // Zoom state for the preview
+  const [zoomLevel, setZoomLevel] = useState(1);
+
+  // Drag-drop state for line reordering
+  const [draggedLineIndex, setDraggedLineIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   // Arrow Menu State
   const [arrowMenu, setArrowMenu] = useState<{ isOpen: boolean; x: number; y: number } | null>(null);
 
   // Anecdote Type Selection State
   const [anecdoteMenu, setAnecdoteMenu] = useState<{ isOpen: boolean; x: number; y: number; wordGroupId: string } | null>(null);
 
+  // Selected line for keyboard operations (N18)
+  const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null);
+
   // Use the currentPageIndex directly from store
   const currentPage = pages[currentPageIndex || 0];
   const splitRatio = currentPage?.splitRatio ?? theme.pageLayout?.splitRatio ?? 0.5;
+
+  // Keyboard shortcuts for line reordering (N18)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!currentPage || selectedLineIndex === null) return;
+      
+      if (e.altKey && e.key === 'ArrowUp' && selectedLineIndex > 0) {
+        e.preventDefault();
+        reorderLines(currentPage.id, selectedLineIndex, selectedLineIndex - 1);
+        setSelectedLineIndex(selectedLineIndex - 1);
+      } else if (e.altKey && e.key === 'ArrowDown' && selectedLineIndex < currentPage.lines.length - 1) {
+        e.preventDefault();
+        reorderLines(currentPage.id, selectedLineIndex, selectedLineIndex + 1);
+        setSelectedLineIndex(selectedLineIndex + 1);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentPage, selectedLineIndex, reorderLines]);
 
   // Separation Line Drag Logic
   const isDraggingSplit = React.useRef(false);
@@ -66,7 +97,7 @@ export const Workspace: React.FC = () => {
       e.stopPropagation();
       e.preventDefault();
       isDraggingSplit.current = true;
-      document.body.style.cursor = 'col-resize';
+      document.body.style.cursor = 'ew-resize'; // Double-ended horizontal arrow
       
       const onMouseMove = (moveEvent: MouseEvent) => {
           if (!isDraggingSplit.current || !currentPage) return;
@@ -188,6 +219,7 @@ export const Workspace: React.FC = () => {
         paddingRight: layout.margins.right,
         paddingBottom: layout.margins.bottom,
         paddingLeft: layout.margins.left,
+        backgroundColor: theme.pageBackground || '#ffffff',
       };
     }
     // Default A4 dimensions
@@ -195,6 +227,7 @@ export const Workspace: React.FC = () => {
       width: '210mm',
       minHeight: '297mm',
       padding: '15mm',
+      backgroundColor: theme.pageBackground || '#ffffff',
     };
   };
 
@@ -226,7 +259,19 @@ export const Workspace: React.FC = () => {
       <ArrowTemplateMenu 
           isOpen={arrowMenu?.isOpen || false} 
           position={arrowMenu ? { x: arrowMenu.x, y: arrowMenu.y } : undefined}
-          onClose={() => setArrowMenu(null)}
+          onSelect={(template) => {
+            // Create the arrow with the selected style template
+            useStore.getState().confirmArrowCreation({
+              style: template.style,
+              headStyle: template.headStyle,
+              color: template.color || useStore.getState().selectedColor
+            });
+            setArrowMenu(null);
+          }}
+          onClose={() => {
+            useStore.getState().cancelArrowCreation();
+            setArrowMenu(null);
+          }}
       />
 
       {/* Anecdote Type Selection Menu */}
@@ -235,21 +280,28 @@ export const Workspace: React.FC = () => {
              className="fixed z-50 bg-white shadow-xl border rounded-lg p-2 grid grid-cols-2 gap-2 w-64"
              style={{ top: anecdoteMenu.y, left: anecdoteMenu.x }}
           >
-             <h4 className="col-span-2 text-xs font-bold text-gray-500 mb-1 border-b pb-1">Select Note Type</h4>
-             {['grammar', 'cultural', 'vocabulary', 'pronunciation'].map(type => (
+             <h4 className="col-span-2 text-xs font-bold text-gray-500 mb-1 border-b pb-1">Select Anecdote Type</h4>
+             {([
+               { type: 'grammar', label: 'Grammar' },
+               { type: 'spoken', label: 'Spoken French' },
+               { type: 'history', label: 'History' },
+               { type: 'falseFriend', label: 'False Friend' },
+               { type: 'pronunciation', label: 'Pronunciation' },
+               { type: 'vocab', label: 'Vocabulary' },
+             ] as { type: AnecdoteType; label: string }[]).map(({ type, label }) => (
                  <button
                     key={type}
-                    className="text-left text-xs p-2 hover:bg-blue-50 text-blue-700 rounded capitalize border border-transparent hover:border-blue-200"
+                    className="text-left text-xs p-2 hover:bg-blue-50 text-blue-700 rounded border border-transparent hover:border-blue-200"
                     onClick={() => {
-                        const color = getColorForAnecdote(type as AnecdoteType);
+                        const color = getColorForAnecdote(type);
                         updateWordGroup(anecdoteMenu.wordGroupId, {
-                            color: color
-                            // In a real app we would set type='note' and store the subtype
+                            color: color,
+                            anecdoteType: type
                         });
                         setAnecdoteMenu(null);
                     }}
                  >
-                    {type}
+                    {label}
                  </button>
              ))}
              <button
@@ -277,15 +329,21 @@ export const Workspace: React.FC = () => {
           />
       )}
 
-      <div className="print:block scale-100 origin-top">
+      <div className="print:block origin-top" style={{ transform: `scale(${zoomLevel})` }}>
         {pages.length > 0 && currentPage ? (
           <div
             key={currentPage.id}
-            className="bg-white shadow-lg mx-auto mb-8 relative print:w-full print:h-screen print:shadow-none print:m-0 print:break-after-page"
+            className="bg-white shadow-lg mx-auto mb-8 relative print:w-full print:h-screen print:shadow-none print:m-0 print:break-after-page cursor-zoom-in"
             style={{ 
               ...getPageStyle(),
               fontSize: theme.fontSize, 
               lineHeight: theme.lineHeight 
+            }}
+            onClick={(e) => {
+              // Only zoom if clicking on the page background, not on interactive elements
+              if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.space-y-6')) {
+                setZoomLevel(prev => prev >= 1.5 ? 1 : prev + 0.25);
+              }
             }}
           >
              {/* Page Header with Navigation Info (not printed) */}
@@ -294,8 +352,46 @@ export const Workspace: React.FC = () => {
             </div>
 
             <div className="space-y-6 relative z-0">
-              {currentPage.lines.map((line) => (
-                <div key={line.id} className="grid gap-4 group relative" style={{ gridTemplateColumns: getGridTemplate() }}>
+              {currentPage.lines.map((line, lineIndex) => (
+                <div 
+                  key={line.id} 
+                  className={clsx(
+                    "grid gap-4 group relative transition-all cursor-pointer",
+                    dragOverIndex === lineIndex && "ring-2 ring-blue-400 bg-blue-50",
+                    draggedLineIndex === lineIndex && "opacity-50",
+                    selectedLineIndex === lineIndex && "ring-2 ring-indigo-400 bg-indigo-50"
+                  )}
+                  style={{ gridTemplateColumns: getGridTemplate() }}
+                  onClick={() => setSelectedLineIndex(lineIndex)}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggedLineIndex(lineIndex);
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(lineIndex));
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) {
+                      setDragOverIndex(lineIndex);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    setDragOverIndex(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggedLineIndex !== null && draggedLineIndex !== lineIndex && currentPage) {
+                      reorderLines(currentPage.id, draggedLineIndex, lineIndex);
+                    }
+                    setDraggedLineIndex(null);
+                    setDragOverIndex(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedLineIndex(null);
+                    setDragOverIndex(null);
+                  }}
+                >
                   
                   {/* Line Number / Action */}
                   <div className="text-gray-300 font-mono text-sm text-right pr-2 pt-1 select-none flex flex-col items-end gap-1">
@@ -431,7 +527,10 @@ export const Workspace: React.FC = () => {
                           className={clsx(
                             "relative p-1 rounded hover:bg-gray-50 transition-colors",
                             line.sectionType === 'title' && "text-2xl font-bold text-center",
-                            line.sectionType === 'heading' && "text-xl font-bold"
+                            line.sectionType === 'heading' && "text-xl font-bold",
+                            line.sectionType === 'note' && "text-sm italic text-gray-500 bg-yellow-50 border-l-4 border-yellow-300 pl-3",
+                            line.sectionType === 'list' && "pl-6 before:content-['•'] before:absolute before:left-2 before:text-gray-400",
+                            line.sectionType === 'paragraph' && "text-base"
                           )}
                           onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french', line.frenchText, line.frenchStyles)}
                         >
@@ -451,7 +550,7 @@ export const Workspace: React.FC = () => {
                       {uiSettings.showFrench && uiSettings.showEnglish && (
                         <div 
                            onMouseDown={handleSplitMouseDown}
-                           className="absolute top-0 bottom-0 w-2 -ml-1 cursor-col-resize hover:bg-blue-400 z-20 opacity-0 hover:opacity-50 transition-opacity" 
+                           className="absolute top-0 bottom-0 w-2 -ml-1 cursor-ew-resize hover:bg-blue-400 z-20 opacity-0 hover:opacity-50 transition-opacity" 
                            style={{ left: `calc(3rem + ${splitRatio * 100}%)` }}
                            title="Drag to resize columns"
                         />
@@ -464,7 +563,10 @@ export const Workspace: React.FC = () => {
                             "relative p-1 rounded hover:bg-gray-50 transition-colors",
                             uiSettings.showFrench && "border-l border-gray-100 pl-4",
                             line.sectionType === 'title' && "text-lg italic text-gray-400 text-center",
-                            line.sectionType === 'heading' && "text-base italic text-gray-400"
+                            line.sectionType === 'heading' && "text-base italic text-gray-400",
+                            line.sectionType === 'note' && "text-sm italic text-gray-400 bg-yellow-50/50",
+                            line.sectionType === 'list' && "pl-6",
+                            line.sectionType === 'paragraph' && "text-base text-gray-600"
                           )}
                           onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english', line.englishText, line.englishStyles)}
                         >
@@ -503,8 +605,21 @@ export const Workspace: React.FC = () => {
                                 </button>
                             </div>
                             
-                            <div className="font-bold text-[10px] opacity-70 uppercase mb-1 flex justify-between">
-                                {card.type}
+                            {/* Editable Type Selector */}
+                            <div className="mb-1">
+                                <select
+                                  value={card.type}
+                                  onChange={(e) => {
+                                    const newType = e.target.value as AnecdoteType;
+                                    const newColor = getColorForAnecdote(newType);
+                                    updateSidebarCard(card.id, { type: newType, color: newColor });
+                                  }}
+                                  className="font-bold text-[10px] opacity-70 uppercase bg-transparent border-none p-0 cursor-pointer focus:ring-0 hover:opacity-100"
+                                >
+                                  {(['grammar', 'spoken', 'history', 'falseFriend', 'pronunciation', 'vocab'] as AnecdoteType[]).map(type => (
+                                    <option key={type} value={type}>{type === 'falseFriend' ? 'False Friend' : type}</option>
+                                  ))}
+                                </select>
                             </div>
                             <textarea
                               className="w-full bg-transparent border-none resize-none focus:ring-0 text-gray-800 p-0 text-xs"

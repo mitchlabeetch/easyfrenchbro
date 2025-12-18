@@ -72,45 +72,6 @@ export const CustomArrowLayer: React.FC = () => {
           });
         });
       });
-
-      // Handle legacy arrows (single word connections)
-      if (arrow.startElementId && arrow.endElementId && sourcePositions.length === 0) {
-        const startEl = document.getElementById(arrow.startElementId);
-        const endEl = document.getElementById(arrow.endElementId);
-        
-        if (startEl && endEl) {
-          const container = document.getElementById('workspace-container');
-          const containerRect = container?.getBoundingClientRect() || { left: 0, top: 0 };
-          
-          const startRect = startEl.getBoundingClientRect();
-          const endRect = endEl.getBoundingClientRect();
-          
-          // Adjust for container offset
-          const adjustedStart = new DOMRect(
-            startRect.left - containerRect.left,
-            startRect.top - containerRect.top,
-            startRect.width,
-            startRect.height
-          );
-          const adjustedEnd = new DOMRect(
-            endRect.left - containerRect.left,
-            endRect.top - containerRect.top,
-            endRect.width,
-            endRect.height
-          );
-          
-          const path = calculateBezierPath(adjustedStart, adjustedEnd, arrow.curvature);
-          paths.push({
-            id: arrow.id,
-            d: path,
-            color: arrow.color,
-            style: arrow.style || 'solid',
-            strokeWidth: arrow.strokeWidth || 2,
-            headStyle: arrow.headStyle || 'arrow',
-            isSelected: selectedElementId === arrow.id
-          });
-        }
-      }
     });
 
     setArrowPaths(paths);
