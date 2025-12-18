@@ -21,7 +21,11 @@ interface ArrowPath {
  * - Custom styling (solid, dashed, dotted)
  * - Selectable arrows for editing
  */
-export const CustomArrowLayer: React.FC = () => {
+interface CustomArrowLayerProps {
+  onArrowClick?: (arrowId: string, position: { x: number; y: number }) => void;
+}
+
+export const CustomArrowLayer: React.FC<CustomArrowLayerProps> = ({ onArrowClick }) => {
   const { arrows, wordGroups, selectedElementId, setSelectedElement, selectionMode } = useStore();
   const [arrowPaths, setArrowPaths] = useState<ArrowPath[]>([]);
 
@@ -90,23 +94,43 @@ export const CustomArrowLayer: React.FC = () => {
     window.addEventListener('resize', handleUpdate);
     
     // Use MutationObserver for DOM changes
-    const observer = new MutationObserver(handleUpdate);
+    const mutationObserver = new MutationObserver(handleUpdate);
     const workspace = document.getElementById('workspace-container');
     if (workspace) {
-      observer.observe(workspace, { childList: true, subtree: true });
+      mutationObserver.observe(workspace, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
     }
+
+    // Use ResizeObserver to catch layout changes that don't trigger mutations
+    let resizeObserver: ResizeObserver | null = null;
+    if (workspace && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(handleUpdate);
+      resizeObserver.observe(workspace);
+      // Also observe all word group elements for size changes
+      const groupElements = workspace.querySelectorAll('[data-group-id]');
+      groupElements.forEach(el => resizeObserver?.observe(el));
+    }
+
+    // Periodic refresh for CSS transitions/animations that don't trigger observers
+    const intervalId = setInterval(handleUpdate, 500);
 
     return () => {
       window.removeEventListener('scroll', handleUpdate, true);
       window.removeEventListener('resize', handleUpdate);
-      observer.disconnect();
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+      clearInterval(intervalId);
     };
   }, [calculatePaths]);
 
   const handleArrowClick = (arrowId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Calculate click position relative to viewport for the menu
+    const position = { x: e.clientX, y: e.clientY };
+
     if (selectionMode === 'none') {
       setSelectedElement(arrowId, 'arrow');
+      onArrowClick?.(arrowId, position);
     }
   };
 

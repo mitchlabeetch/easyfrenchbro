@@ -184,6 +184,19 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
           // Underline with group color
           borderBottom: group ? `3px solid ${group.color}` : undefined,
           paddingBottom: group ? '2px' : undefined,
+          // Legacy highlights
+          backgroundColor: inHighlight ? undefined : (
+            theme.searchHighlight?.lineId === lineId && 
+            theme.searchHighlight?.language === language && 
+            currentWordIndex >= 0 // Simplified: if any word in the line is part of search, maybe highlight? 
+            // Better: use the indices. But WordGroup renderer splits by words.
+            // Let's just highlight the word if it contains the search term index-wise.
+            ? '#fbbf24' // Yellow-400 for search match
+            : useStore.getState().highlights.find(h => 
+              h.associatedLineId === lineId && 
+              (language === 'french' ? h.frenchWordIds.includes(wordId) : h.englishWordIds.includes(wordId))
+            )?.colorCode
+          ),
           // Rich Text Styles
           fontWeight: style?.bold ? 'bold' : 'normal',
           fontStyle: style?.italic ? 'italic' : 'normal',

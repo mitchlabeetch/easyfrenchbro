@@ -18,7 +18,7 @@ interface SearchBarProps {
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({ isOpen, onClose }) => {
-  const { pages, setCurrentPageIndex, saveToHistory } = useStore();
+  const { pages, setCurrentPageIndex, saveToHistory, setSearchHighlight } = useStore();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [replaceQuery, setReplaceQuery] = useState('');
@@ -84,8 +84,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({ isOpen, onClose }) => {
     // Navigate to first result
     if (foundResults.length > 0) {
       setCurrentPageIndex(foundResults[0].pageIndex);
+      setSearchHighlight({
+        lineId: foundResults[0].lineId,
+        language: foundResults[0].language,
+        startIndex: foundResults[0].startIndex,
+        endIndex: foundResults[0].endIndex
+      });
+    } else {
+      setSearchHighlight(null);
     }
-  }, [searchQuery, pages, caseSensitive, setCurrentPageIndex]);
+  }, [searchQuery, pages, caseSensitive, setCurrentPageIndex, setSearchHighlight]);
 
   // Trigger search on query change
   useEffect(() => {
@@ -96,17 +104,29 @@ export const SearchBar: React.FC<SearchBarProps> = ({ isOpen, onClose }) => {
   // Navigate to previous result
   const goToPrevious = () => {
     if (results.length === 0) return;
-    const newIndex = currentResultIndex === 0 ? results.length - 1 : currentResultIndex - 1;
-    setCurrentResultIndex(newIndex);
-    setCurrentPageIndex(results[newIndex].pageIndex);
+    const prevIndex = currentResultIndex === 0 ? results.length - 1 : currentResultIndex - 1;
+    setCurrentResultIndex(prevIndex);
+    setCurrentPageIndex(results[prevIndex].pageIndex);
+    setSearchHighlight({
+      lineId: results[prevIndex].lineId,
+      language: results[prevIndex].language,
+      startIndex: results[prevIndex].startIndex,
+      endIndex: results[prevIndex].endIndex
+    });
   };
 
   // Navigate to next result
   const goToNext = () => {
     if (results.length === 0) return;
-    const newIndex = currentResultIndex === results.length - 1 ? 0 : currentResultIndex + 1;
-    setCurrentResultIndex(newIndex);
-    setCurrentPageIndex(results[newIndex].pageIndex);
+    const nextIndex = currentResultIndex === results.length - 1 ? 0 : currentResultIndex + 1;
+    setCurrentResultIndex(nextIndex);
+    setCurrentPageIndex(results[nextIndex].pageIndex);
+    setSearchHighlight({
+      lineId: results[nextIndex].lineId,
+      language: results[nextIndex].language,
+      startIndex: results[nextIndex].startIndex,
+      endIndex: results[nextIndex].endIndex
+    });
   };
 
   // Replace current occurrence
@@ -212,7 +232,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({ isOpen, onClose }) => {
           <Search size={16} /> Find & Replace
         </h3>
         <button 
-          onClick={onClose}
+          onClick={() => {
+            setSearchHighlight(null);
+            onClose();
+          }}
           className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
         >
           <X size={18} />

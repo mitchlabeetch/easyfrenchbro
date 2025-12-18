@@ -257,6 +257,10 @@ interface StoreState extends ProjectState {
   cancelArrowCreation: () => void;
   
   currentPageIndex: number;
+  zoomLevel: number;
+  setZoomLevel: (zoom: number) => void;
+  syncLineStyles: (lineId: string, language: Language, allLineStyles: TextStyle[]) => void;
+  setSearchHighlight: (highlight: ThemeConfig['searchHighlight']) => void;
 
   // Legacy
   addToHighlightSelection: (wordId: string, lang: 'french' | 'english', lineId: string) => void;
@@ -319,6 +323,9 @@ export const useStore = create<StoreState>((set, get) => ({
     isSelectingTarget: false,
     lastInteractedGroupId: null
   },
+
+  zoomLevel: 1,
+  setZoomLevel: (zoomLevel) => set({ zoomLevel }),
 
   // History state for undo/redo
   history: [],
@@ -524,14 +531,12 @@ export const useStore = create<StoreState>((set, get) => ({
       linkedPairs: state.linkedPairs.map(p => p.id === id ? { ...p, ...updates } : p)
   })),
 
-  syncLinkedStyles: (sourceWordId, styles) => set((state) => {
+  syncLinkedStyles: (sourceWordId, allWordStyles) => set((state) => {
     // Find pairs containing this word
     const affectedPairs = state.linkedPairs.filter(p => p.sourceWordIds.includes(sourceWordId) || p.targetWordIds.includes(sourceWordId));
     
     if (affectedPairs.length === 0) return state;
 
-    // Deep copy pages to update styles
-    // Note: optimization possible, but deep cloning full pages array is safest for immutability
     const newPages = state.pages.map(p => ({
         ...p,
         lines: p.lines.map(l => ({ ...l }))
@@ -542,7 +547,6 @@ export const useStore = create<StoreState>((set, get) => ({
        const targetIds = isSource ? pair.targetWordIds : pair.sourceWordIds;
        const lineId = pair.lineId;
 
-       // Find line
        const pageIndex = newPages.findIndex(p => p.lines.some(l => l.id === lineId));
        if (pageIndex === -1) return;
 
@@ -550,20 +554,18 @@ export const useStore = create<StoreState>((set, get) => ({
        const lineIndex = page.lines.findIndex(l => l.id === lineId);
        const line = page.lines[lineIndex];
 
-       // Update styles for target words
        const targetLang = isSource ? 'english' : 'french';
        const currentStyles = targetLang === 'french' ? (line.frenchStyles || []) : (line.englishStyles || []);
        
        let updatedStyles = [...currentStyles];
        
        targetIds.forEach(targetId => {
-          // Remove existing style entry for this word if exists
-          updatedStyles = updatedStyles.filter(s => s.wordId !== targetId);
-          // Add new style (merging properties from source style)
-          // We assume 'styles' param contains the FULL style set for the source word.
-          // So we replicate it for the target word.
-          styles.forEach(s => {
-             updatedStyles.push({ ...s, wordId: targetId }); 
+          // Remove ALL existing style entries for this specific target word
+          updatedStyles = updatedStyles.filter(s => s.wordId !== targetId.split('-').pop());
+          
+          // Add all new style chunks for this target word
+          allWordStyles.forEach(s => {
+             updatedStyles.push({ ...s, wordId: targetId.split('-').pop()! }); 
           });
        });
 
@@ -572,6 +574,64 @@ export const useStore = create<StoreState>((set, get) => ({
        } else {
          line.englishStyles = updatedStyles;
        }
+    });
+
+    return { pages: newPages };
+  }),
+  
+  // N15: Synchronize all styles for a line at once
+  syncLineStyles: (lineId: string, language: Language, allLineStyles: TextStyle[]) => set((state) => {
+    // Group styles by wordId
+    const stylesByWord = new Map<string, TextStyle[]>();
+    allLineStyles.forEach((s: TextStyle) => {
+      if (!stylesByWord.has(s.wordId)) stylesByWord.set(s.wordId, []);
+      stylesByWord.get(s.wordId)!.push(s);
+    });
+
+    // Find all pairs for this line
+    const linePairs = state.linkedPairs.filter(p => p.lineId === lineId);
+    if (linePairs.length === 0) return state;
+
+    const newPages = state.pages.map(p => ({
+        ...p,
+        lines: p.lines.map(l => ({ ...l }))
+    }));
+
+    linePairs.forEach(pair => {
+      const sourceIsCurrent = (language === 'french' && pair.sourceWordIds.some(id => id.includes('-french-'))) || 
+                             (language === 'english' && pair.sourceWordIds.some(id => id.includes('-english-')));
+      
+      const currentWordIds = sourceIsCurrent ? pair.sourceWordIds : pair.targetWordIds;
+      const otherWordIds = sourceIsCurrent ? pair.targetWordIds : pair.sourceWordIds;
+      const otherLang = language === 'french' ? 'english' : 'french';
+
+      // Find line in newPages
+      const page = newPages.find(p => p.lines.some(l => l.id === lineId));
+      if (!page) return;
+      const line = page.lines.find(l => l.id === lineId)!;
+
+      const otherStyles = otherLang === 'french' ? (line.frenchStyles || []) : (line.englishStyles || []);
+      let updatedOtherStyles = [...otherStyles];
+
+      currentWordIds.forEach(currentFullId => {
+        const wordIdx = currentFullId.split('-').pop()!;
+        const wordStyles = stylesByWord.get(wordIdx) || [];
+        
+        otherWordIds.forEach(otherFullId => {
+          const otherIdx = otherFullId.split('-').pop()!;
+          // Replicate styles
+          updatedOtherStyles = updatedOtherStyles.filter(s => s.wordId !== otherIdx);
+          wordStyles.forEach(s => {
+            updatedOtherStyles.push({ ...s, wordId: otherIdx });
+          });
+        });
+      });
+
+      if (otherLang === 'french') {
+        line.frenchStyles = updatedOtherStyles;
+      } else {
+        line.englishStyles = updatedOtherStyles;
+      }
     });
 
     return { pages: newPages };
@@ -828,9 +888,15 @@ export const useStore = create<StoreState>((set, get) => ({
     return set((state) => ({
       pages: state.pages.map(p => {
         if (p.id !== pageId) return p;
+        const filteredLines = p.lines.filter(l => l.id !== lineId);
+        // Refresh line numbers
+        const updatedLines = filteredLines.map((l, idx) => ({
+          ...l,
+          lineNumber: idx + 1
+        }));
         return {
           ...p,
-          lines: p.lines.filter(l => l.id !== lineId)
+          lines: updatedLines
         };
       })
     }));
@@ -851,7 +917,13 @@ export const useStore = create<StoreState>((set, get) => ({
         const [removed] = newLines.splice(fromIndex, 1);
         newLines.splice(toIndex, 0, removed);
         
-        return { ...page, lines: newLines };
+        // Refresh line numbers
+        const updatedLines = newLines.map((l, idx) => ({
+          ...l,
+          lineNumber: idx + 1
+        }));
+        
+        return { ...page, lines: updatedLines };
       })
     }));
   },
@@ -1065,6 +1137,10 @@ export const useStore = create<StoreState>((set, get) => ({
     };
   }),
 
+  setSearchHighlight: (highlight) => set((state) => ({ 
+    theme: { ...state.theme, searchHighlight: highlight } 
+  })),
+
   redo: () => set((state) => {
     if (state.historyIndex >= state.history.length - 1) return state;
     
@@ -1085,6 +1161,14 @@ export const useStore = create<StoreState>((set, get) => ({
 function migrateProjectState(state: any): ProjectState {
   const migrated = { ...state };
 
+  // N21: Word ID Generation Strategy
+  // Currently, word IDs are generated as `${lineId}-${language}-${wordIndex}`.
+  // This is considered FRAGILE because:
+  // 1. If the line text is edited (adding/removing words), the indices shift.
+  // 2. Existing wordGroups, highlights, and linkedPairs that depend on these IDs 
+  //    will point to the wrong words or become invalid after such shifts.
+  // RECOMMENDATION for future: Move to stable UUIDs for words upon initial parse.
+  
   // Ensure wordGroups exists
   if (!migrated.wordGroups) {
     migrated.wordGroups = [];

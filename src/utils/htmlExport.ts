@@ -1,4 +1,4 @@
-import { PageData, WordGroup, ArrowConnector, ThemeConfig, ColorPalette, WordGroupType } from '../types';
+import { PageData, WordGroup, ArrowConnector, ThemeConfig, ColorPalette, SidebarCard, WordGroupType } from '../types';
 
 interface ExportOptions {
   includeStyles: boolean;
@@ -25,6 +25,7 @@ export function generateInteractiveHTML(
   pages: PageData[],
   wordGroups: WordGroup[],
   arrows: ArrowConnector[],
+  sidebars: SidebarCard[],
   theme: ThemeConfig,
   palette: ColorPalette,
   projectTitle: string,
@@ -33,7 +34,7 @@ export function generateInteractiveHTML(
   const opts = { ...defaultOptions, ...options };
   
   const css = generateCSS(theme, palette, opts);
-  const content = generateContent(pages, wordGroups, arrows, opts);
+  const content = generateContent(pages, wordGroups, arrows, sidebars, opts);
   const js = generateJS(opts);
   
   return `<!DOCTYPE html>
@@ -85,6 +86,14 @@ function generateCSS(theme: ThemeConfig, palette: ColorPalette, _opts: ExportOpt
       --color-adjective: ${colors.adjective};
       --color-adverb: ${colors.adverb};
       --color-text: ${colors.text};
+      
+      /* Anecdote Colors */
+      --color-grammar: ${colors.grammar || '#fef3c7'};
+      --color-spoken: ${colors.spoken || '#dcfce7'};
+      --color-history: ${colors.history || '#dbeafe'};
+      --color-falseFriend: ${colors.falseFriend || '#fce7f3'};
+      --color-pronunciation: ${colors.pronunciation || '#f3e8ff'};
+      --color-vocab: ${colors.vocab || '#e0f2fe'};
       
       --bg-primary: #ffffff;
       --bg-secondary: #f8fafc;
@@ -205,6 +214,12 @@ function generateCSS(theme: ThemeConfig, palette: ColorPalette, _opts: ExportOpt
       color: var(--text-secondary);
     }
     
+    /* Section types */
+    .section-title { font-size: 2rem; font-weight: 800; text-align: center; margin: 2rem 0; grid-template-columns: 1fr; }
+    .section-heading { font-size: 1.5rem; font-weight: 700; margin-top: 2rem; border-bottom: 2px solid var(--border-color); grid-template-columns: 1fr; }
+    .section-note { font-style: italic; background: var(--bg-secondary); padding: 0.5rem; border-left: 4px solid var(--color-verb); }
+    .section-title .line-english, .section-heading .line-english { display: block; filter: none; opacity: 0.7; }
+    
     /* Hover reveal */
     .reveal-mode .line-english {
       opacity: 0;
@@ -230,8 +245,16 @@ function generateCSS(theme: ThemeConfig, palette: ColorPalette, _opts: ExportOpt
     .word-group.verb { background: color-mix(in srgb, var(--color-verb) 30%, transparent); }
     .word-group.complement { background: color-mix(in srgb, var(--color-complement) 30%, transparent); }
     .word-group.article { background: color-mix(in srgb, var(--color-article) 30%, transparent); }
-    .word-group.adjective { background: color-mix(in srgb, var(--color-adjective) 30%, transparent); }
-    .word-group.adverb { background: color-mix(in srgb, var(--color-adverb) 30%, transparent); }
+    .word-group.adjective { background: color-mix(in srgb, var(--color-adjective) 30%, transparent); border-bottom: 2px solid var(--color-adjective); }
+    .word-group.adverb { background: color-mix(in srgb, var(--color-adverb) 30%, transparent); border-bottom: 2px solid var(--color-adverb); }
+    
+    /* Anecdote specific styles */
+    .word-group.grammar { background: var(--color-grammar); }
+    .word-group.spoken { background: var(--color-spoken); }
+    .word-group.history { background: var(--color-history); }
+    .word-group.falseFriend { background: var(--color-falseFriend); }
+    .word-group.pronunciation { background: var(--color-pronunciation); }
+    .word-group.vocab { background: var(--color-vocab); }
     
     .word-group::after {
       content: attr(data-type);
@@ -272,6 +295,38 @@ function generateCSS(theme: ThemeConfig, palette: ColorPalette, _opts: ExportOpt
       }
     }
     
+    /* Sidebar Cards / Anecdotes */
+    .sidebar-notes {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-left: 1rem;
+      flex: 0 0 12rem; /* Fixed width */
+      font-size: 0.8rem;
+    }
+
+    .note-card {
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.1);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      white-space: pre-wrap;
+    }
+    
+    .line-container {
+        display: flex;
+        align-items: flex-start;
+        border-bottom: 1px solid var(--border-color);
+        padding: 1rem 0;
+    }
+    
+    .line-container .line-pair {
+        flex: 1;
+        border-bottom: none;
+        padding: 0;
+    }
+
     .footer {
       margin-top: 3rem;
       padding-top: 1.5rem;
@@ -314,6 +369,7 @@ function generateContent(
   pages: PageData[],
   wordGroups: WordGroup[],
   _arrows: ArrowConnector[],
+  sidebars: SidebarCard[],
   _opts: ExportOptions
 ): string {
   return pages.map((page, pageIndex) => {
@@ -325,10 +381,22 @@ function generateContent(
       const frenchHtml = renderTextWithGroups(line.frenchText, lineGroups, line.id, 'french');
       const englishHtml = renderTextWithGroups(line.englishText, lineGroups, line.id, 'english');
       
+      // Find sidebar cards for this line
+      const lineCards = sidebars.filter(s => s.anchoredLineId === line.id);
+      const cardsHtml = lineCards.map(card => `
+          <div class="note-card" style="background-color: ${card.color || '#fef3c7'}80; border-left: 3px solid ${card.color || '#fca5a5'}">
+            <strong>${card.type}</strong><br/>
+            ${escapeHtml(card.content)}
+          </div>
+      `).join('');
+
       return `
-        <div class="line-pair" id="${line.id}">
-          <div class="line-french">${frenchHtml}</div>
-          <div class="line-english" tabindex="0">${englishHtml}</div>
+        <div class="line-container section-${line.sectionType || 'paragraph'}" id="line-${line.id}">
+            <div class="line-pair" id="${line.id}">
+              <div class="line-french">${frenchHtml}</div>
+              <div class="line-english" tabindex="0">${englishHtml}</div>
+            </div>
+            ${cardsHtml ? `<div class="sidebar-notes">${cardsHtml}</div>` : ''}
         </div>
       `;
     }).join('');
@@ -370,8 +438,12 @@ function renderTextWithGroups(
     // Check if this word is part of any group
     const group = languageGroups.find(g => g.wordIds.includes(wordId));
     
-    if (group && group.type) {
-      return `<span class="word-group ${group.type}" data-type="${getTypeName(group.type)}">${escapeHtml(word)}</span>`;
+    if (group) {
+      const typeClass = group.anecdoteType || group.type || 'custom';
+      const label = group.label || (group.type ? getTypeName(group.type) : '');
+      const styleAttr = group.color && !group.type && !group.anecdoteType ? `style="border-bottom: 2px solid ${group.color}; background-color: ${group.color}33;"` : '';
+      
+      return `<span class="word-group ${typeClass}" data-type="${label}" ${styleAttr}>${escapeHtml(word)}</span>`;
     }
     
     return escapeHtml(word);

@@ -179,6 +179,7 @@ export interface ThemeConfig {
   activePaletteId?: string;
   layoutMode: LayoutMode;
   pageBackground?: string; // Page background color (N24)
+  searchHighlight?: { lineId: string; language: 'french' | 'english'; startIndex: number; endIndex: number } | null; // N14
 }
 
 // NEW: UI Settings

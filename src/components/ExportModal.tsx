@@ -35,6 +35,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
           pages,
           wordGroups,
           arrows,
+          useStore.getState().sidebars,
           theme,
           activePalette,
           metadata.title || 'Untitled',

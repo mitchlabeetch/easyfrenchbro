@@ -94,7 +94,9 @@ export const PropertiesPanel: React.FC = () => {
     setActivePalette,
     addTemplate,
     removeTemplate,
-    toggleLayoutMode
+    toggleLayoutMode,
+    zoomLevel,
+    setZoomLevel
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'theme' | 'palette' | 'layout' | 'templates'>('theme');
@@ -261,6 +263,27 @@ export const PropertiesPanel: React.FC = () => {
               </div>
 
               <div className="border-t pt-4">
+                <label className="block text-xs text-gray-500 mb-1">Workspace Zoom ({Math.round(zoomLevel * 100)}%)</label>
+                <div className="flex items-center gap-2">
+                    <input 
+                      type="range" 
+                      min="0.5" 
+                      max="2.5" 
+                      step="0.05"
+                      className="flex-1 cursor-pointer accent-indigo-600"
+                      value={zoomLevel}
+                      onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+                    />
+                    <button 
+                      onClick={() => setZoomLevel(1)}
+                      className="text-[10px] px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded"
+                    >
+                      Reset
+                    </button>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
                   <h4 className="text-xs font-semibold text-gray-700 mb-2">French Text</h4>
                   <select
                     className="w-full border rounded p-2 text-sm"
@@ -381,6 +404,19 @@ export const PropertiesPanel: React.FC = () => {
                          </div>
                     ))}
                  </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Page Background</h3>
+                <div className="flex items-center justify-between bg-white p-2 rounded border">
+                  <span className="text-xs font-semibold text-gray-700">Background Color</span>
+                  <input
+                    type="color"
+                    value={theme.pageBackground || '#ffffff'}
+                    onChange={(e) => updateTheme({ pageBackground: e.target.value })}
+                    className="w-6 h-6 border-none p-0 rounded cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
           )}
