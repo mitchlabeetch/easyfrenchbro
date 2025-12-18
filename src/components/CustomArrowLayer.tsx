@@ -62,9 +62,11 @@ export const CustomArrowLayer: React.FC<CustomArrowLayerProps> = ({ onArrowClick
       });
 
       // Create arrow paths from each source to each target
-      sourcePositions.forEach(sourceRect => {
-        targetPositions.forEach(targetRect => {
-          const path = calculateBezierPath(sourceRect, targetRect, arrow.curvature);
+      sourcePositions.forEach((sourceRect, sIdx) => {
+        targetPositions.forEach((targetRect, tIdx) => {
+          // Use a combined index for offset
+          const offsetIndex = sIdx + tIdx; 
+          const path = calculateBezierPath(sourceRect, targetRect, arrow.curvature, offsetIndex);
           paths.push({
             id: arrow.id,
             d: path,
@@ -241,48 +243,55 @@ function getGroupBoundingRect(wordIds: string[]): DOMRect | null {
   return new DOMRect(minX, minY, maxX - minX, maxY - minY);
 }
 
-/**
- * Calculate a bezier path that curves BELOW the text
- * 
- * The arrow starts from the bottom-center of the source,
- * curves downward (below the text line), and ends at the
- * bottom-center of the target.
- */
-function calculateBezierPath(
-  source: DOMRect,
-  target: DOMRect,
-  curvature: number
-): string {
-  // Start point: bottom center of source
-  const startX = source.left + source.width / 2;
-  const startY = source.top + source.height + 5; // 5px below the underline
-
-  // End point: bottom center of target
-  const endX = target.left + target.width / 2;
-  const endY = target.top + target.height + 5;
-
-  // Calculate control points for a curve that goes BELOW
-  const distanceX = Math.abs(endX - startX);
-  const distanceY = Math.abs(endY - startY);
-  const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+  // Calculate a bezier path that curves BELOW the text
+  function calculateBezierPath(
+    source: DOMRect,
+    target: DOMRect,
+    curvature: number,
+    index: number = 0 // Offset index to avoid overlap
+  ): string {
+    // Start point: bottom center of source
+    const startX = source.left + source.width / 2;
+    const startY = source.top + source.height + 5; 
   
-  // The curve depth increases with distance and curvature setting
-  const curveDepth = Math.max(30, distance * 0.3) * curvature;
+    // End point: bottom center of target
+    const endX = target.left + target.width / 2;
+    const endY = target.top + target.height + 5;
   
-  // Control points go below the line
-  const midX = (startX + endX) / 2;
-  const midY = Math.max(startY, endY) + curveDepth;
-
-  // For same-line arrows, use quadratic bezier
-  if (Math.abs(startY - endY) < 10) {
-    return `M ${startX} ${startY} Q ${midX} ${midY} ${endX} ${endY}`;
+    // Add small jitter/offset based on index to prevent exact overlaps
+    const offset = (index % 5) * 4; // 0, 4, 8, 12, 16px offset
+    
+    // For flatness: reduce curve depth significantly for short arrows
+    // And limit the max depth
+    const distanceX = Math.abs(endX - startX);
+    const distanceY = Math.abs(endY - startY);
+    const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+    
+    // Flatten logic: 
+    // If distance is short (< 150px), make it very flat
+    // If distance is long, allow more curve but clamp it.
+    let curveDepth = Math.min(80, Math.max(20, distance * 0.2)) * curvature;
+    
+    // Push the curve further down if we have offset
+    curveDepth += offset;
+  
+    // Control points go below the line
+    // We use a more "square-ish" bezier for better readability sometimes, 
+    // but a smooth cubic bezier is usually nicer.
+    
+    // If mostly vertical (rare in this app?), adjust differently
+    if (distanceX < 20) {
+        curveDepth = 30;
+    }
+  
+    const cp1Y = Math.max(startY, endY) + curveDepth;
+    const cp2Y = Math.max(startY, endY) + curveDepth;
+    
+    // Spread control points horizontally to widen the bottom of the U shape
+    const cp1X = startX + (endX - startX) * 0.2;
+    const cp2X = endX - (endX - startX) * 0.2;
+  
+    return `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`;
   }
-
-  // For different lines, use cubic bezier for smoother curves
-  const cp1Y = startY + curveDepth * 0.5;
-  const cp2Y = endY + curveDepth * 0.5;
-
-  return `M ${startX} ${startY} C ${startX} ${cp1Y}, ${endX} ${cp2Y}, ${endX} ${endY}`;
-}
 
 export default CustomArrowLayer;

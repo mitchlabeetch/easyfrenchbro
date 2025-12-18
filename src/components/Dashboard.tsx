@@ -216,7 +216,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreatePro
                                     >
                                         <Trash2 size={16} />
                                     </button>
-                                    <FolderOpen size={18} className="text-gray-300 group-hover:text-blue-500" />
+                                    <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          fetch('http://localhost:3001/open-folder', { 
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ path: `projects/${p.name}.json` })
+                                          }).catch(console.error);
+                                        }}
+                                        className="p-2 rounded-lg text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                                        title="Show in Finder"
+                                    >
+                                        <FolderOpen size={18} />
+                                    </button>
                                 </div>
                             </div>
                         ))

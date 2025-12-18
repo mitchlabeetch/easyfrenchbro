@@ -425,15 +425,21 @@ function renderTextWithGroups(
     return escapeHtml(text);
   }
   
-  // Split text into words
-  const words = text.split(/(\s+)/);
+  // Split text into words using the same logic as WordGroupRenderer
+  const tokens = text.split(/([a-zA-Z0-9À-ÿ'']+)/).filter(Boolean);
   let wordIndex = 0;
   
-  return words.map(word => {
-    if (/^\s+$/.test(word)) return word; // Keep whitespace
+  return tokens.map(token => {
+    // Check if it's a word using the same regex
+    const isWord = /^[a-zA-Z0-9À-ÿ'']+$/.test(token);
     
-    const wordId = `${lineId}-${language}-${wordIndex}`;
-    wordIndex++;
+    if (!isWord) {
+      return escapeHtml(token);
+    }
+    
+    // It's a word, increment index
+    const currentWordIndex = wordIndex++;
+    const wordId = `${lineId}-${language}-${currentWordIndex}`;
     
     // Check if this word is part of any group
     const group = languageGroups.find(g => g.wordIds.includes(wordId));
@@ -443,10 +449,10 @@ function renderTextWithGroups(
       const label = group.label || (group.type ? getTypeName(group.type) : '');
       const styleAttr = group.color && !group.type && !group.anecdoteType ? `style="border-bottom: 2px solid ${group.color}; background-color: ${group.color}33;"` : '';
       
-      return `<span class="word-group ${typeClass}" data-type="${label}" ${styleAttr}>${escapeHtml(word)}</span>`;
+      return `<span class="word-group ${typeClass}" data-type="${label}" ${styleAttr}>${escapeHtml(token)}</span>`;
     }
     
-    return escapeHtml(word);
+    return escapeHtml(token);
   }).join('');
 }
 

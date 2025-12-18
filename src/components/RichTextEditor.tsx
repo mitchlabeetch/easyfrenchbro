@@ -35,21 +35,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       const newStyles = [...styles];
       
       selectedWordIndices.forEach(index => {
-          // Find existing style for this word index
-          // We need a stable ID for the word. In this ephemeral editor, index is proxy for ID?
-          // No, we need to map back to original IDs if possible or generate new ones.
-          // Let's use a temporary ID convention: "temp-idx"
-          const tempWordId = `temp-${index}`;
+          const wordId = String(index);
           
-          let styleEntry = newStyles.find(s => s.wordId === tempWordId);
-          if (!styleEntry) {
-              styleEntry = { wordId: tempWordId };
+          let styleEntry = newStyles.find(s => s.wordId === wordId);
+           if (!styleEntry) {
+              styleEntry = { wordId: wordId };
               newStyles.push(styleEntry);
           }
           
           // Toggle
           if (styleEntry[styleKey]) {
               delete styleEntry[styleKey];
+              // Cleanup empty objects? Maybe not strictly necessary but cleaner
           } else {
               styleEntry[styleKey] = true;
           }
@@ -59,19 +56,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   const handleSave = () => {
-      // Map temp IDs back to real relative IDs (0, 1, 2...)
-      // The parent component needs to reconcile these styles with the actual line data
-      // So we return styles with "relative index" based IDs? 
-      // ACTUALLY: The styles prop uses `wordId`.
-      // We should probably pass the styles back with their associated word INDICES or internal IDs.
-      // Let's assume onSave handles the mapping if we provide index-based styles.
-      
-      const cleanStyles = styles.map(s => ({
-          ...s,
-          wordId: s.wordId.replace('temp-', '') // Convert "temp-0" -> "0"
-      }));
-      
-      onSave(text, cleanStyles);
+      // Styles are already mapped to indices "0", "1" etc.
+      onSave(text, styles);
   };
 
   return (
@@ -121,29 +107,51 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       />
 
       {/* Styling Area - Interactive Words */}
-      <div className="bg-gray-50 border rounded p-2 mb-3 h-32 overflow-y-auto text-sm leading-relaxed">
+      <div className="bg-gray-50 border rounded p-2 mb-3 h-32 overflow-y-auto text-sm leading-relaxed font-serif">
          <p className="text-xs text-gray-400 mb-1">Click words to select, then apply styles:</p>
-         <div className="flex flex-wrap gap-1">
-             {text.split(/\s+/).filter(Boolean).map((word, idx) => {
-                 const tempId = `temp-${idx}`;
-                 const style = styles.find(s => s.wordId === tempId);
-                 const isSelected = selectedWordIndices.includes(idx);
-                 
-                 return (
-                     <span
-                       key={idx}
-                       onClick={() => handleWordClick(idx)}
-                       className={`cursor-pointer px-1 rounded transition-colors ${isSelected ? 'bg-blue-200 text-blue-800' : 'hover:bg-gray-200'}`}
-                       style={{
-                           fontWeight: style?.bold ? 'bold' : 'normal',
-                           fontStyle: style?.italic ? 'italic' : 'normal',
-                           textDecoration: `${style?.underline ? 'underline' : ''} ${style?.strikethrough ? 'line-through' : ''}`
-                       }}
-                     >
-                        {word}
-                     </span>
-                 );
-             })}
+         <div className="whitespace-pre-wrap">
+             {(() => {
+                 // Match WordGroupRenderer logic exactly
+                 const tokens = text.split(/([a-zA-Z0-9À-ÿ'']+)/).filter(Boolean);
+                 let wordIndex = 0;
+                 return tokens.map((token, idx) => {
+                     const isWord = /^[a-zA-Z0-9À-ÿ'']+$/.test(token);
+                     
+                     if (!isWord) {
+                         return <span key={idx}>{token}</span>;
+                     }
+                     
+                     const currentWordIndex = wordIndex++;
+                     // const tempId = `temp-${currentWordIndex}`; // Unused
+                     
+                     // Check style with logical index stored as wordId "0", "1" etc.
+                     // The editor state initially loads styles with real IDs "0", "1".
+                     // But here we construct temp IDs "temp-0" for internal editor tracking.
+                     // Wait, initialStyles come from the store with IDs like "0", "1".
+                     // So we should map them to our internal ID format or just use "0", "1" directly.
+                     // Let's use string indices as IDs directly to simplify.
+                     const wordId = String(currentWordIndex);
+                     
+                     // We need to check if we have a style for this index
+                     const style = styles.find(s => s.wordId === wordId);
+                     const isSelected = selectedWordIndices.includes(currentWordIndex);
+                     
+                     return (
+                         <span
+                           key={idx}
+                           onClick={() => handleWordClick(currentWordIndex)}
+                           className={`cursor-pointer px-0.5 rounded transition-colors ${isSelected ? 'bg-blue-200 text-blue-800' : 'hover:bg-gray-200'}`}
+                           style={{
+                               fontWeight: style?.bold ? 'bold' : 'normal',
+                               fontStyle: style?.italic ? 'italic' : 'normal',
+                               textDecoration: `${style?.underline ? 'underline' : ''} ${style?.strikethrough ? 'line-through' : ''}`.trim()
+                           }}
+                         >
+                            {token}
+                         </span>
+                     );
+                 });
+             })()}
          </div>
       </div>
 
@@ -156,11 +164,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         </button>
         <button
           onClick={() => {
-            const cleanStyles = styles.map(s => ({
-                ...s,
-                wordId: s.wordId.replace('temp-', '')
-            }));
-            onSave(text, cleanStyles, true);
+            onSave(text, styles, true);
           }}
           className="flex-1 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center gap-2"
           title="Save and automatically update linked words"

@@ -70,7 +70,10 @@ export const Workspace: React.FC = () => {
     const [arrowMenu, setArrowMenu] = useState<{ isOpen: boolean; x: number; y: number } | null>(null);
     const [arrowEditMenuPosition, setArrowEditMenuPosition] = useState<{ x: number; y: number } | null>(null);
 
-    // Anecdote Type Selection State
+    // Sidebar Card Creation Menu State
+    const [sidebarMenu, setSidebarMenu] = useState<{ isOpen: boolean; x: number; y: number; lineId: string } | null>(null);
+    
+    // Legacy/WordGroup Anecdote Menu State (Type Selection)
     const [anecdoteMenu, setAnecdoteMenu] = useState<{ isOpen: boolean; x: number; y: number; wordGroupId: string } | null>(null);
 
     // Selected line for keyboard operations
@@ -104,6 +107,15 @@ export const Workspace: React.FC = () => {
         return () => window.speechSynthesis?.cancel();
     }, []);
 
+    useEffect(() => {
+        if (arrowCreation?.sourceGroupIds.length > 0 && arrowCreation?.targetGroupIds.length > 0) {
+            const el = document.getElementById(arrowCreation.lastInteractedGroupId || '');
+            const rect = el?.getBoundingClientRect();
+            const pos = rect ? { x: rect.right + 10, y: rect.top } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+            setArrowMenu({ isOpen: true, x: pos.x, y: pos.y });
+        }
+    }, [arrowCreation?.sourceGroupIds, arrowCreation?.targetGroupIds]);
+
     const handleBackgroundClick = (e: React.MouseEvent) => {
         if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('workspace-inner')) {
             if (selectionMode === 'none') {
@@ -112,9 +124,10 @@ export const Workspace: React.FC = () => {
             }
             clearWordGroupSelection();
             cancelArrowCreation();
+            setSidebarMenu(null); // Close sidebar menu
         }
     };
-
+    
     const handleSplitMouseDown = (e: React.MouseEvent) => {
         e.stopPropagation();
         e.preventDefault();
@@ -127,10 +140,6 @@ export const Workspace: React.FC = () => {
             if (!container) return;
 
             const rect = container.getBoundingClientRect();
-            // Calculate relative to the flexible area
-            // Total width = rect.width
-            // Fixed widths = 3rem (48px) + 12rem (192px) = 240px
-            // Flexible width = rect.width - 240px
             
             const fixedLeft = 48; // 3rem
             const fixedRight = 192; // 12rem
@@ -138,7 +147,6 @@ export const Workspace: React.FC = () => {
 
             if (flexibleWidth <= 0) return;
 
-            // Mouse position relative to the START of flexible area
             const relativeX = moveEvent.clientX - rect.left - fixedLeft;
             
             let newRatio = relativeX / flexibleWidth;
@@ -159,7 +167,6 @@ export const Workspace: React.FC = () => {
     };
 
     const handleWorkspaceMouseDown = (e: React.MouseEvent) => {
-        // Allow panning with Shift + Click (or Middle click if requested, but user said Shift+Hold)
         if (e.shiftKey || e.button === 1) {
             setIsPanning(true);
             setPanStart({ x: e.clientX, y: e.clientY });
@@ -257,24 +264,42 @@ export const Workspace: React.FC = () => {
             backgroundColor: theme.pageBackground || '#ffffff',
         };
     };
-
-    useEffect(() => {
-        if (arrowCreation?.sourceGroupIds.length > 0 && arrowCreation?.targetGroupIds.length > 0) {
-            const el = document.getElementById(arrowCreation.lastInteractedGroupId || '');
-            const rect = el?.getBoundingClientRect();
-            const pos = rect ? { x: rect.right + 10, y: rect.top } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-            setArrowMenu({ isOpen: true, x: pos.x, y: pos.y });
-        }
-    }, [arrowCreation?.sourceGroupIds, arrowCreation?.targetGroupIds]);
+    
+    /* 
+    // Helper to calculate "Above" position (Available for future use)
+    const getAbovePosition = (rect: DOMRect, height: number = 200) => {
+        const x = rect.left + rect.width / 2;
+        const y = rect.top - height - 10;
+        return { x, y };
+    }; 
+    */
 
     return (
         <div id="workspace-container" ref={workspaceRef}
             className={clsx("flex-1 overflow-auto bg-gray-200 p-8 relative flex flex-col items-center", uiSettings.focusMode && "p-0")}
             onClick={handleBackgroundClick} onMouseDown={handleWorkspaceMouseDown}>
+            
+            {/* Color Picker for Legacy Highlight Mode */}
+            {selectionMode === 'highlight' && (
+                <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-full shadow-lg z-50 flex gap-2 border">
+                     {theme.highlightColors.map(color => (
+                         <button
+                            key={color}
+                            className={clsx("w-6 h-6 rounded-full border border-gray-200 hover:scale-110 transition-transform", useStore.getState().selectedColor === color && "ring-2 ring-blue-500")}
+                            style={{ backgroundColor: color }}
+                            onClick={() => useStore.setState({ selectedColor: color })}
+                         />
+                     ))}
+                </div>
+            )}
+
             <div className="workspace-inner relative shadow-2xl origin-top transition-transform duration-200"
                 style={{ transform: `scale(${zoomLevel})`, marginBottom: `${(zoomLevel - 1) * 100}%` }}>
                 <CustomArrowLayer 
-                    onArrowClick={(_id, pos) => setArrowEditMenuPosition(pos)} 
+                    onArrowClick={(_id, pos) => {
+                        // Position helper above the arrow click
+                        setArrowEditMenuPosition({ x: pos.x, y: pos.y - 120 }); // Adjust offset as needed
+                    }} 
                 />
                 
                 {selectedElementId && selectedElementType === 'arrow' && arrowEditMenuPosition && (
@@ -299,7 +324,7 @@ export const Workspace: React.FC = () => {
                 )}
                 <ArrowTemplateMenu
                     isOpen={arrowMenu?.isOpen || false}
-                    position={arrowMenu ? { x: arrowMenu.x, y: arrowMenu.y } : undefined}
+                    position={arrowMenu ? { x: arrowMenu.x, y: arrowMenu.y - 200 } : undefined} // Spawn above
                     onSelect={(template) => {
                         useStore.getState().confirmArrowCreation({ style: template.style, headStyle: template.headStyle, color: template.color || useStore.getState().selectedColor });
                         setArrowMenu(null);
@@ -309,9 +334,11 @@ export const Workspace: React.FC = () => {
                         setArrowMenu(null);
                     }}
                 />
+                {/* Anecdote TYPE selection menu for Word Groups (existing) */}
                 {anecdoteMenu && (
-                    <div className="fixed z-50 bg-white shadow-xl border rounded-lg p-2 grid grid-cols-2 gap-2 w-64" style={{ top: anecdoteMenu.y, left: anecdoteMenu.x }}>
-                        <h4 className="col-span-2 text-xs font-bold text-gray-500 mb-1 border-b pb-1">Select Anecdote Type</h4>
+                    <div className="fixed z-50 bg-white shadow-xl border rounded-lg p-2 grid grid-cols-2 gap-2 w-64" 
+                         style={{ top: anecdoteMenu.y - 180, left: anecdoteMenu.x }}>
+                        <h4 className="col-span-2 text-xs font-bold text-gray-500 mb-1 border-b pb-1">Select Word Type</h4>
                         {([
                             { type: 'grammar', label: 'Grammar' },
                             { type: 'spoken', label: 'Spoken' },
@@ -328,9 +355,37 @@ export const Workspace: React.FC = () => {
                         ))}
                     </div>
                 )}
+                
+                {/* NEW: Sidebar Card Creation Menu */}
+                {sidebarMenu && (
+                    <div className="fixed z-50 bg-white shadow-xl border rounded-lg p-2 grid grid-cols-2 gap-2 w-64" 
+                         style={{ top: sidebarMenu.y, left: sidebarMenu.x }}>
+                         <div className="col-span-2 flex justify-between items-center border-b pb-1 mb-1">
+                            <h4 className="text-xs font-bold text-gray-500">Add Anecdote</h4>
+                            <button onClick={() => setSidebarMenu(null)}><X size={12} /></button>
+                         </div>
+                        {([
+                            { type: 'grammar', label: 'Grammar' },
+                            { type: 'spoken', label: 'Spoken' },
+                            { type: 'history', label: 'History' },
+                            { type: 'falseFriend', label: 'False Friend' },
+                            { type: 'pronunciation', label: 'Pronunciation' },
+                            { type: 'vocab', label: 'Vocab' },
+                        ] as const).map(({ type, label }) => (
+                            <button key={type} className="text-left text-xs p-2 hover:bg-blue-50 text-blue-700 rounded border border-transparent hover:border-blue-200"
+                                onClick={() => {
+                                    addSidebarCard({ type: type, content: 'New Note', anchoredLineId: sidebarMenu.lineId });
+                                    setSidebarMenu(null);
+                                }}>{label}</button>
+                        ))}
+                    </div>
+                )}
+
                 {editorState.isOpen && (
                     <RichTextEditor initialText={editorState.initialText} initialStyles={editorState.initialStyles}
-                        onSave={saveRichText} onCancel={() => setEditorState({ ...editorState, isOpen: false })} position={editorState.position} />
+                        onSave={saveRichText} onCancel={() => setEditorState({ ...editorState, isOpen: false })} 
+                        // Ensure editor spawns somewhat above or near pointer but safely
+                        position={{ x: editorState.position.x, y: Math.max(10, editorState.position.y - 250) }} />
                 )}
                 <div className="print:block origin-top">
                     {pages.length > 0 && currentPage ? (
@@ -351,7 +406,11 @@ export const Workspace: React.FC = () => {
                                             <span className="group-hover:hidden">{lineIndex + 1}</span>
                                             <div className="hidden group-hover:flex flex-col gap-1 no-print">
                                                 <button className="text-blue-500 hover:text-blue-700 p-1 hover:bg-blue-50 rounded" title="Add Anecdote"
-                                                    onClick={(e) => { e.stopPropagation(); addSidebarCard({ type: 'grammar', content: 'New Note', anchoredLineId: line.id }); }}>
+                                                    onClick={(e) => { 
+                                                        e.stopPropagation(); 
+                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                        setSidebarMenu({ isOpen: true, x: rect.right + 10, y: rect.top, lineId: line.id });
+                                                    }}>
                                                     <PlusCircle size={14} /></button>
                                                 <button className="text-indigo-500 hover:text-indigo-700 p-1 hover:bg-indigo-50 rounded" title="Speak"
                                                     onClick={(e) => { e.stopPropagation(); const u = new SpeechSynthesisUtterance(line.frenchText); u.lang = 'fr-FR'; window.speechSynthesis.speak(u); }}>

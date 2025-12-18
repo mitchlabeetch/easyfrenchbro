@@ -216,6 +216,42 @@ app.post('/preferences', (req, res) => {
         res.status(500).send("Error saving preferences");
     }
 });
+// Open folder in system explorer
+app.post('/open-folder', async (req, res) => {
+  try {
+    const { path: folderPath } = req.body;
+    // Default to userdata folder if not specified
+    const targetPath = folderPath ? path.resolve(USER_DATA_DIR, folderPath) : USER_DATA_DIR;
+    
+    // Ensure we are only opening paths within USER_DATA_DIR for security
+    if (!targetPath.startsWith(USER_DATA_DIR)) {
+       return res.status(403).send('Access denied');
+    }
+
+    let command;
+    let args = [];
+
+    if (process.platform === 'darwin') {
+      command = 'open';
+      args = [targetPath];
+    } else if (process.platform === 'win32') {
+      command = 'explorer';
+      args = [targetPath];
+    } else {
+      command = 'xdg-open';
+      args = [targetPath];
+    }
+
+    const { spawn } = await import('child_process');
+    spawn(command, args, { detached: true, stdio: 'ignore' }).unref();
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error opening folder:', error);
+    res.status(500).send('Error opening folder');
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
