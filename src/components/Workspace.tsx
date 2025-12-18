@@ -4,9 +4,6 @@ import { WordGroupRenderer } from './WordGroupRenderer';
 import { CustomArrowLayer } from './CustomArrowLayer';
 import { PlusCircle, Pen, Settings2, Trash2, X, Volume2 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { RichTextEditor } from './RichTextEditor';
-import { ArrowTemplateMenu } from './ArrowTemplateMenu';
-import { ArrowEditMenu } from './ArrowEditMenu';
 import { TextStyle, AnecdoteType } from '../types';
 
 export const Workspace: React.FC = () => {
@@ -27,8 +24,6 @@ export const Workspace: React.FC = () => {
         setSelectedElement,
         clearWordGroupSelection,
         cancelArrowCreation,
-        syncLineStyles,
-        updateLineStyles,
         uiSettings,
         updateLineProperty,
         reorderLines,
@@ -36,26 +31,8 @@ export const Workspace: React.FC = () => {
         zoomLevel,
         selectedElementId,
         selectedElementType,
-        updateArrow,
-        removeArrow,
-        arrows
+        setTextEditingLineId
     } = useStore();
-
-    const [editorState, setEditorState] = useState<{
-        isOpen: boolean;
-        lineId: string | null;
-        language: 'french' | 'english' | null;
-        initialText: string;
-        initialStyles: TextStyle[];
-        position: { x: number; y: number };
-    }>({
-        isOpen: false,
-        lineId: null,
-        language: null,
-        initialText: '',
-        initialStyles: [],
-        position: { x: 0, y: 0 }
-    });
 
     const workspaceRef = useRef<HTMLDivElement>(null);
     const [isPanning, setIsPanning] = useState(false);
@@ -65,10 +42,6 @@ export const Workspace: React.FC = () => {
     const isDraggingSplit = useRef(false);
     const [draggedLineIndex, setDraggedLineIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-
-    // Arrow Menu State
-    const [arrowMenu, setArrowMenu] = useState<{ isOpen: boolean; x: number; y: number } | null>(null);
-    const [arrowEditMenuPosition, setArrowEditMenuPosition] = useState<{ x: number; y: number } | null>(null);
 
     // Sidebar Card Creation Menu State
     const [sidebarMenu, setSidebarMenu] = useState<{ isOpen: boolean; x: number; y: number; lineId: string } | null>(null);
@@ -118,31 +91,15 @@ export const Workspace: React.FC = () => {
         return () => window.speechSynthesis?.cancel();
     }, []);
 
-    useEffect(() => {
-        if (arrowCreation?.sourceGroupIds.length > 0 && arrowCreation?.targetGroupIds.length > 0) {
-            const el = document.getElementById(arrowCreation.lastInteractedGroupId || '');
-            const rect = el?.getBoundingClientRect();
-            // Use window center as fallback, but relative to inner
-            const fallbackX = window.innerWidth / 2;
-            const fallbackY = window.innerHeight / 2;
-            
-            const rawX = rect ? rect.right + 10 : fallbackX;
-            const rawY = rect ? rect.top : fallbackY;
-            
-            const pos = getRelativePosition(rawX, rawY);
-            setArrowMenu({ isOpen: true, x: pos.x, y: pos.y });
-        }
-    }, [arrowCreation?.sourceGroupIds, arrowCreation?.targetGroupIds]);
-
     const handleBackgroundClick = (e: React.MouseEvent) => {
         if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('workspace-inner')) {
             if (selectionMode === 'none') {
                 setSelectedElement(null, null);
-                setArrowEditMenuPosition(null);
             }
             clearWordGroupSelection();
             cancelArrowCreation();
             setSidebarMenu(null); // Close sidebar menu
+            setTextEditingLineId(null);
         }
     };
     
@@ -168,7 +125,7 @@ export const Workspace: React.FC = () => {
             const relativeX = moveEvent.clientX - rect.left - fixedLeft;
             
             let newRatio = relativeX / flexibleWidth;
-            newRatio = Math.max(0.1, Math.min(0.9, newRatio));
+            newRatio = Math.max(0.05, Math.min(0.95, newRatio));
             updatePage(currentPage.id, { splitRatio: newRatio });
         };
 
@@ -242,25 +199,9 @@ export const Workspace: React.FC = () => {
         return parts.join(" ");
     };
 
-    const handleLineDoubleClick = (e: React.MouseEvent, lineId: string, language: 'french' | 'english', text: string, styles: TextStyle[] = []) => {
+    const handleLineDoubleClick = (e: React.MouseEvent, lineId: string, language: 'french' | 'english') => {
         e.stopPropagation();
-        const pos = getRelativePosition(e.clientX, e.clientY);
-        setEditorState({
-            isOpen: true,
-            lineId,
-            language,
-            initialText: text,
-            initialStyles: styles,
-            position: pos
-        });
-    };
-
-    const saveRichText = (_text: string, styles: TextStyle[], shouldSync?: boolean) => {
-        if (editorState.lineId && editorState.language) {
-            updateLineStyles(editorState.lineId, editorState.language, styles);
-            if (shouldSync) syncLineStyles(editorState.lineId, editorState.language, styles);
-        }
-        setEditorState({ ...editorState, isOpen: false });
+        setTextEditingLineId({ lineId, language });
     };
 
     const getPageStyle = () => {
@@ -316,47 +257,11 @@ export const Workspace: React.FC = () => {
                 style={{ transform: `scale(${zoomLevel})`, marginBottom: `${(zoomLevel - 1) * 100}%` }}>
                 <div style={{ zIndex: draggedLineIndex !== null ? -1 : 10, position: 'absolute', inset: 0, pointerEvents: 'none' }}>
                     <CustomArrowLayer 
-                        onArrowClick={(_id, pos) => {
-                            // Position helper above the arrow click
-                            // pos is already clientX/Y from the event
-                            const relPos = getRelativePosition(pos.x, pos.y);
-                            setArrowEditMenuPosition({ x: relPos.x, y: relPos.y - 120 }); // Adjust offset as needed
+                        onArrowClick={(id) => {
+                            setSelectedElement(id, 'arrow');
                         }} 
                     />
                 </div>
-                
-                {selectedElementId && selectedElementType === 'arrow' && arrowEditMenuPosition && (
-                    <ArrowEditMenu
-                        arrowId={selectedElementId}
-                        currentStyle={arrows.find(a => a.id === selectedElementId)?.style || 'solid'}
-                        currentHeadStyle={arrows.find(a => a.id === selectedElementId)?.headStyle || 'arrow'}
-                        currentWidth={arrows.find(a => a.id === selectedElementId)?.strokeWidth || 2}
-                        currentColor={arrows.find(a => a.id === selectedElementId)?.color || '#000000'}
-                        position={arrowEditMenuPosition}
-                        onUpdate={(id, updates) => updateArrow(id, updates)}
-                        onDelete={(id) => {
-                            removeArrow(id);
-                            setArrowEditMenuPosition(null);
-                            setSelectedElement(null, null);
-                        }}
-                        onClose={() => {
-                            setArrowEditMenuPosition(null);
-                            setSelectedElement(null, null);
-                        }}
-                    />
-                )}
-                <ArrowTemplateMenu
-                    isOpen={arrowMenu?.isOpen || false}
-                    position={arrowMenu ? { x: arrowMenu.x, y: arrowMenu.y - 200 } : undefined} // Spawn above
-                    onSelect={(template) => {
-                        useStore.getState().confirmArrowCreation({ style: template.style, headStyle: template.headStyle, color: template.color || useStore.getState().selectedColor });
-                        setArrowMenu(null);
-                    }}
-                    onClose={() => {
-                        useStore.getState().cancelArrowCreation();
-                        setArrowMenu(null);
-                    }}
-                />
                 {/* Anecdote TYPE selection menu for Word Groups (existing) */}
                 {anecdoteMenu && (
                     <div className="fixed z-50 bg-white shadow-xl border rounded-lg p-2 grid grid-cols-2 gap-2 w-64" 
@@ -404,12 +309,6 @@ export const Workspace: React.FC = () => {
                     </div>
                 )}
 
-                {editorState.isOpen && (
-                    <RichTextEditor initialText={editorState.initialText} initialStyles={editorState.initialStyles}
-                        onSave={saveRichText} onCancel={() => setEditorState({ ...editorState, isOpen: false })} 
-                        // Ensure editor spawns somewhat above or near pointer but safely
-                        position={{ x: editorState.position.x, y: Math.max(10, editorState.position.y - 250) }} />
-                )}
                 <div className="print:block origin-top">
                     {pages.length > 0 && currentPage ? (
                         <div key={currentPage.id} className="bg-white shadow-lg mx-auto mb-8 relative print:w-full print:h-screen print:shadow-none"
@@ -458,7 +357,7 @@ export const Workspace: React.FC = () => {
                                             <div className={clsx("relative p-1 space-y-2", line.sectionType === 'title' && "text-center py-4", line.sectionType === 'heading' && "border-b border-gray-100 py-2")}>
                                                 {uiSettings.showFrench && (
                                                     <div className={clsx("relative p-1 rounded hover:bg-gray-50", line.sectionType === 'title' && "text-2xl font-bold", line.sectionType === 'heading' && "text-xl font-bold")}
-                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french', line.frenchText, line.frenchStyles)}>
+                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french')}>
                                                         <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
                                                             <Pen size={12} className="text-gray-400" />
                                                         </div>
@@ -466,7 +365,7 @@ export const Workspace: React.FC = () => {
                                                 )}
                                                 {uiSettings.showEnglish && (
                                                     <div className={clsx("relative p-1 rounded hover:bg-gray-50 text-gray-500", line.sectionType === 'title' && "text-lg italic text-gray-400", line.sectionType === 'heading' && "text-base italic text-gray-400")}
-                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english', line.englishText, line.englishStyles)}>
+                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english')}>
                                                         <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
                                                             <Pen size={12} className="text-gray-400" />
                                                         </div>
@@ -477,7 +376,7 @@ export const Workspace: React.FC = () => {
                                             <>
                                                 {uiSettings.showFrench && (
                                                     <div className={clsx("relative p-1 rounded hover:bg-gray-50", line.sectionType === 'title' && "text-2xl font-bold text-center", line.sectionType === 'heading' && "text-xl font-bold", line.sectionType === 'note' && "text-sm italic text-gray-500 bg-yellow-50 border-l-4 border-yellow-300 pl-3")}
-                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french', line.frenchText, line.frenchStyles)}>
+                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french')}>
                                                         <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
                                                             <Pen size={12} className="text-gray-400" />
                                                         </div>
@@ -495,7 +394,7 @@ export const Workspace: React.FC = () => {
 
                                                 {uiSettings.showEnglish && (
                                                     <div className={clsx("relative p-1 rounded hover:bg-gray-50", uiSettings.showFrench && "border-l border-gray-100 pl-4", line.sectionType === 'title' && "text-lg italic text-gray-400 text-center", line.sectionType === 'heading' && "text-base italic text-gray-400")}
-                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english', line.englishText, line.englishStyles)}>
+                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english')}>
                                                         <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
                                                             <Pen size={12} className="text-gray-400" />
                                                         </div>

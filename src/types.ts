@@ -44,12 +44,23 @@ export interface PageData {
 }
 
 // Legacy highlight (kept for backwards compatibility)
+/** @deprecated Use HighlightRange instead */
 export interface SpanHighlight {
   id: string;
   colorCode: string;
   frenchWordIds: string[];
   englishWordIds: string[];
   associatedLineId: string;
+}
+
+// NEW: Highlight Range (Marker Pen Style)
+export interface HighlightRange {
+    id: string;
+    lineId: string;
+    language: Language;
+    startWordIndex: number;
+    endWordIndex: number;
+    color: string;
 }
 
 // NEW: Word Group - represents multiple consecutive words as one unit
@@ -226,6 +237,7 @@ export interface ProjectState {
   metadata: ProjectMetadata;
   pages: PageData[];
   highlights: SpanHighlight[]; // Legacy, kept for backwards compatibility
+  highlightRanges?: HighlightRange[]; // NEW: Marker Pen Highlights
   wordGroups: WordGroup[]; // NEW
   arrows: ArrowConnector[];
   sidebars: SidebarCard[];

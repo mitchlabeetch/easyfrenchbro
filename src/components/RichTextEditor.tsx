@@ -8,6 +8,7 @@ interface RichTextEditorProps {
   onSave: (text: string, styles: TextStyle[], shouldSync?: boolean) => void;
   onCancel: () => void;
   position: { x: number, y: number };
+  isEmbedded?: boolean;
 }
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
@@ -15,7 +16,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   initialStyles, 
   onSave, 
   onCancel,
-  position 
+  position,
+  isEmbedded = false
 }) => {
   const [text, setText] = useState(initialText);
   const [styles, setStyles] = useState<TextStyle[]>(initialStyles);
@@ -62,8 +64,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   return (
     <div 
-      className="fixed z-50 bg-white shadow-xl border rounded-lg p-4 w-96 font-sans"
-      style={{ top: position.y, left: position.x }}
+      className={isEmbedded ? "bg-white p-4 h-full flex flex-col font-sans" : "fixed z-50 bg-white shadow-xl border rounded-lg p-4 w-96 font-sans"}
+      style={isEmbedded ? {} : { top: position.y, left: position.x }}
     >
       <div className="flex justify-between items-center mb-2 border-b pb-2">
         <h3 className="text-sm font-bold text-gray-700">Edit Text & Style</h3>
@@ -107,7 +109,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       />
 
       {/* Styling Area - Interactive Words */}
-      <div className="bg-gray-50 border rounded p-2 mb-3 h-32 overflow-y-auto text-sm leading-relaxed font-serif">
+      <div className="bg-gray-50 border rounded p-2 mb-3 flex-1 overflow-y-auto text-sm leading-relaxed font-serif">
          <p className="text-xs text-gray-400 mb-1">Click words to select, then apply styles:</p>
          <div className="whitespace-pre-wrap">
              {(() => {

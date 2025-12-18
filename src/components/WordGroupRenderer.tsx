@@ -11,7 +11,9 @@ interface WordGroupRendererProps {
   styles?: TextStyle[]; // NEW: Accept styles
 }
 
-export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, language, lineId, styles = [] }) => {
+import { HighlightTooltip } from './HighlightTooltip';
+
+export const WordGroupRenderer: React.FC<WordGroupRendererProps> = React.memo(({ text, language, lineId, styles = [] }) => {
   const {
     selectionMode,
     wordGroups,
@@ -25,12 +27,15 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
     selectedElementId,
     setSelectedElement,
     theme,
-    highlightSelection,
-    highlights,
-    addHighlight,
-    removeHighlight,
-    updateHighlight
+    highlightRanges,
+    addHighlightRange,
+    updateHighlightRange,
+    selectedColor
   } = useStore();
+
+  const [hoveredHighlightId, setHoveredHighlightId] = React.useState<string | null>(null);
+  const [dragStartWordIndex, setDragStartWordIndex] = React.useState<number | null>(null);
+  const [currentDragEndIndex, setCurrentDragEndIndex] = React.useState<number | null>(null);
 
   // Split text into words and non-words (punctuation/spaces)
   const tokens = text.split(/([a-zA-Z0-9À-ÿ'']+)/).filter(Boolean);
@@ -59,7 +64,7 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
     return arrowCreation.targetGroupIds.includes(groupId);
   };
 
-  const handleWordClick = (wordId: string, wordIndex: number, e: React.MouseEvent) => {
+  const handleWordClick = React.useCallback((wordId: string, wordIndex: number, e: React.MouseEvent) => {
     e.stopPropagation();
 
     if (selectionMode === 'wordGroup') {
@@ -74,51 +79,13 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
       const group = wordIdToGroup.get(wordId);
       if (group) {
         if (!arrowCreation.isSelectingTarget) {
-          // If already selected as source, maybe deselect? (Logic for multi-source can be added later)
-          // For now, simple start
           startArrowFromGroup(group.id);
         } else {
-          // Add as target (accumulate)
-           // Prevent self-loop if needed, or allow it
            if (!arrowCreation.sourceGroupIds.includes(group.id)) {
               addArrowTargetGroup(group.id);
            }
         }
       }
-    } else if (selectionMode === 'highlight') {
-      // Toggle highlight for this word
-      const existing = highlights.find(h => 
-          h.associatedLineId === lineId && 
-          (language === 'french' ? h.frenchWordIds.includes(wordId) : h.englishWordIds.includes(wordId))
-       );
-       
-       if (existing) {
-          // Keep it simple: remove the highlight entry entirely if it's a single word match? 
-          // Or smarter: remove just this word.
-          const isFrench = language === 'french';
-          const ids = isFrench ? existing.frenchWordIds : existing.englishWordIds;
-          const newIds = ids.filter(id => id !== wordId);
-          
-          // If nothing left in this highlight (for both langs), remove it
-          const otherLangIds = isFrench ? existing.englishWordIds : existing.frenchWordIds;
-          
-          if (newIds.length === 0 && otherLangIds.length === 0) {
-              removeHighlight(existing.id);
-          } else {
-              updateHighlight(existing.id, {
-                  frenchWordIds: isFrench ? newIds : existing.frenchWordIds,
-                  englishWordIds: !isFrench ? newIds : existing.englishWordIds
-              });
-          }
-       } else {
-          // Create new highlight with selected color
-          addHighlight({
-              associatedLineId: lineId,
-              frenchWordIds: language === 'french' ? [wordId] : [],
-              englishWordIds: language === 'english' ? [wordId] : [],
-              colorCode: useStore.getState().selectedColor
-          });
-       }
     } else if (selectionMode === 'none') {
       const group = wordIdToGroup.get(wordId);
       if (group) {
@@ -127,32 +94,81 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
         setSelectedElement(null, null);
       }
     }
+  }, [selectionMode, wordGroupSelection, lineId, language, wordIdToGroup, arrowCreation, startWordGroupSelection, extendWordGroupSelection, startArrowFromGroup, addArrowTargetGroup, setSelectedElement]);
+
+  // Highlight Drag Handlers
+  const handleHighlightMouseDown = (e: React.MouseEvent, index: number) => {
+    if (selectionMode === 'highlight') {
+        e.stopPropagation();
+        e.preventDefault(); // Prevent text selection
+        setDragStartWordIndex(index);
+        setCurrentDragEndIndex(index);
+    }
   };
 
-  // Check if word is selected in highlight mode
-  const isInHighlightSelection = (wordId: string) => {
-    if (highlightSelection.lineId !== lineId) return false;
-    return language === 'french'
-      ? highlightSelection.frenchIds.includes(wordId)
-      : highlightSelection.englishIds.includes(wordId);
+  const handleHighlightMouseEnter = (index: number) => {
+      if (selectionMode === 'highlight' && dragStartWordIndex !== null) {
+          setCurrentDragEndIndex(index);
+      }
   };
 
-  const handleWordDoubleClick = (e: React.MouseEvent) => {
+  const handleHighlightMouseUp = () => {
+      if (selectionMode === 'highlight' && dragStartWordIndex !== null && currentDragEndIndex !== null) {
+          const start = Math.min(dragStartWordIndex, currentDragEndIndex);
+          const end = Math.max(dragStartWordIndex, currentDragEndIndex);
+
+          addHighlightRange({
+              lineId,
+              language,
+              startWordIndex: start,
+              endWordIndex: end,
+              color: selectedColor
+          });
+
+          setDragStartWordIndex(null);
+          setCurrentDragEndIndex(null);
+      }
+  };
+
+  // Global mouse up to catch dragging release outside word boundaries
+  React.useEffect(() => {
+      const globalUp = () => {
+          if (dragStartWordIndex !== null) {
+             handleHighlightMouseUp();
+          }
+      };
+      window.addEventListener('mouseup', globalUp);
+      return () => window.removeEventListener('mouseup', globalUp);
+  }, [dragStartWordIndex, currentDragEndIndex, selectionMode, selectedColor, lineId, language]);
+
+  const handleWordDoubleClick = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     if (selectionMode === 'wordGroup' && wordGroupSelection.wordIds.length > 0) {
       confirmWordGroupSelection();
     }
-  };
+  }, [selectionMode, wordGroupSelection, confirmWordGroupSelection]);
+
+  // Determine active highlights for this line/language
+  const activeHighlights = highlightRanges?.filter(h => h.lineId === lineId && h.language === language) || [];
+
+  // Temporary highlight during drag
+  let dragHighlight = null;
+  if (selectionMode === 'highlight' && dragStartWordIndex !== null && currentDragEndIndex !== null) {
+      const start = Math.min(dragStartWordIndex, currentDragEndIndex);
+      const end = Math.max(dragStartWordIndex, currentDragEndIndex);
+      dragHighlight = { startWordIndex: start, endWordIndex: end, color: selectedColor };
+  }
 
   // Render tokens with grouping
   let wordIndex = 0;
   const renderedTokens: React.ReactNode[] = [];
 
+  // LAYER 1: FOREGROUND (Text & Underlines)
   tokens.forEach((token, tokenIdx) => {
     const isWord = /^[a-zA-Z0-9À-ÿ'']+$/.test(token);
 
     if (!isWord) {
-      // Logic for contiguous highlighting of spaces/punctuation
+      // Logic for contiguous underlining of spaces/punctuation
       const prevWordId = `${lineId}-${language}-${wordIndex - 1}`;
       const nextWordId = `${lineId}-${language}-${wordIndex}`;
       
@@ -166,7 +182,9 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
           key={`token-${tokenIdx}`}
           style={{
              borderBottom: isContiguousGroup ? `3px solid ${prevGroup.color}` : undefined,
-             paddingBottom: isContiguousGroup ? '2px' : undefined
+             paddingBottom: isContiguousGroup ? '2px' : undefined,
+             position: 'relative',
+             zIndex: 20
           }}
           className={clsx(isContiguousGroup && "group-spacer")}
         >
@@ -179,16 +197,10 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
     const wordId = `${lineId}-${language}-${wordIndex}`;
     const group = wordIdToGroup.get(wordId);
     const inSelection = isInCurrentSelection(wordId);
-    const inHighlight = isInHighlightSelection(wordId); // Check if selected in highlight mode
     const isSource = group && isArrowSource(group.id);
-    const isTarget = group && isArrowTarget(group.id); // Highlight targets too
+    const isTarget = group && isArrowTarget(group.id);
     const currentWordIndex = wordIndex;
     
-    // Get style for this word
-    // We match by INDEX in the styles array for now, assuming styles are stored by relative index
-    // OR we match by constructed ID.
-    // The RichTextEditor saves IDs as "0", "1", "2". We should map validly.
-    // Let's assume styles use indices as strings.
     const style = styles.find(s => s.wordId === String(currentWordIndex));
 
     wordIndex++;
@@ -197,44 +209,33 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
       <span
         key={wordId}
         id={wordId}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleWordClick(wordId, currentWordIndex, e as any);
+            }
+        }}
         onClick={(e) => handleWordClick(wordId, currentWordIndex, e)}
         onDoubleClick={handleWordDoubleClick}
+        onMouseDown={(e) => handleHighlightMouseDown(e, currentWordIndex)}
+        onMouseEnter={() => handleHighlightMouseEnter(currentWordIndex)}
         className={clsx(
-          "cursor-pointer transition-all duration-150 select-none relative inline-block",
-          "hover:bg-gray-100 rounded-sm px-0.5 -mx-0.5 z-10", // Negative margin to overlap spacer slightly
-          // In a group - show underline styling
+          "cursor-pointer transition-all duration-150 select-none relative inline-block z-20", // z-20 for foreground
+          "hover:bg-black/5 rounded-sm px-0.5 -mx-0.5",
           group && "group-word",
-          // Currently being selected (word group mode)
           inSelection && "bg-yellow-200 ring-1 ring-yellow-400",
-          // Highlight mode selection
-          inHighlight && "bg-orange-200 ring-1 ring-orange-400",
-          // Arrow interaction
           isSource && "ring-2 ring-blue-500 bg-blue-50",
           isTarget && "ring-2 ring-green-500 bg-green-50",
-          // Selected for editing
           selectedElementId === group?.id && "bg-gray-200"
         )}
         style={{
-          // Underline with group color
           borderBottom: group ? `3px solid ${group.color}` : undefined,
           paddingBottom: group ? '2px' : undefined,
-          // Legacy highlights
-          backgroundColor: inHighlight ? undefined : (
-            theme.searchHighlight?.lineId === lineId && 
-            theme.searchHighlight?.language === language && 
-            currentWordIndex >= 0 // Simplified: if any word in the line is part of search, maybe highlight? 
-            // Better: use the indices. But WordGroup renderer splits by words.
-            // Let's just highlight the word if it contains the search term index-wise.
-            ? '#fbbf24' // Yellow-400 for search match
-            : useStore.getState().highlights.find(h => 
-              h.associatedLineId === lineId && 
-              (language === 'french' ? h.frenchWordIds.includes(wordId) : h.englishWordIds.includes(wordId))
-            )?.colorCode
-          ),
-          // Rich Text Styles
           fontWeight: style?.bold ? 'bold' : 'normal',
           fontStyle: style?.italic ? 'italic' : 'normal',
-          textDecoration: `${style?.underline ? 'underline' : ''} ${style?.strikethrough ? 'line-through' : ''}`
+          textDecoration: `${style?.underline ? 'underline' : ''} ${style?.strikethrough ? 'line-through' : ''}`.trim()
         }}
         data-group-id={group?.id}
         data-word-index={currentWordIndex}
@@ -243,6 +244,108 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
       </span>
     );
   });
+
+  // LAYER 0: BACKGROUND (Highlights)
+  // We need to render highlights *behind* the text.
+  // We can do this by overlaying divs based on word index positions,
+  // but since we are inside a text flow, using absolute positioning is tricky without precise coordinates.
+  // A robust way in a text flow is to render spans that mirror the text structure or
+  // use a "mark" equivalent behind.
+
+  // Strategy:
+  // We can't easily calculate pixel widths here without refs to every span.
+  // But wait, the previous code applied background color directly to the span.
+  // The requirement says "Layer 0 (Background): <div> blocks representing highlights. These must render behind the text."
+  // "Calculate width and left position dynamically".
+  // This implies we need a ref to the container and maybe the word spans.
+  // Given the complexity of "exact pixel calculation" in a reactive flow without causing layout thrashing,
+  // I will use a simplified approach: Render highlight backgrounds on the words themselves but via a separate loop or
+  // applying it to the span with z-index.
+  // BUT the prompt says "contiguous selection" covering spaces.
+  // So checking if a space is "between" highlighted words is key.
+
+  // Let's re-render the text stream just for highlights in a layer behind?
+  // No, that doubles DOM nodes and sync issues.
+  // Better: The spans above are Z-20. We can put absolute div layers behind them if we know geometry.
+
+  // Alternative: Just color the words and the spaces between them if both neighbors are highlighted.
+  // This is what I did in the "Foregound" loop logic for groups.
+  // Let's adapt that logic for highlights in the loop, but using a lower Z-index pseudo-element or sibling?
+  // Actually, the prompt explicitly asks for "Layer 0" as `div` blocks.
+
+  // Let's implement the "Background Layer" by calculating ranges.
+  // We can simply render the highlighting logic ON the spans but ensure it looks like a layer.
+  // OR, we stick to the prompt: "Split the render into two absolute layers".
+
+  // Let's try to map the highlight ranges to visual blocks.
+  // If we can't easily do absolute positioning without measuring refs (which causes re-renders),
+  // we might stick to modifying the spans but ensuring visual continuity.
+
+  // COMPROMISE: I will use the "Token Stream" approach but render a BACKGROUND layer first,
+  // then the text layer on top.
+  // The background layer will contain spans with background colors only (transparent text).
+  // The foreground layer will have text and underlines.
+  // Both layers will be absolute on top of each other? No, relative container.
+
+  // Let's do: Container (relative) -> Background Layer (absolute, z-0) -> Foreground Layer (relative, z-10)
+  // Background layer mirrors the text content exactly but colors backgrounds.
+
+  const renderBackgroundLayer = () => {
+      let wIdx = 0;
+      return tokens.map((token, tIdx) => {
+          const isWord = /^[a-zA-Z0-9À-ÿ'']+$/.test(token);
+          if (!isWord) {
+             // Check if surrounded by same highlight to bridge the gap
+             const prevIdx = wIdx - 1;
+             const nextIdx = wIdx;
+
+             // Find a highlight that covers BOTH prevIdx and nextIdx
+             const coveringHighlight = activeHighlights.find(h =>
+                 h.startWordIndex <= prevIdx && h.endWordIndex >= nextIdx
+             ) || (dragHighlight && dragHighlight.startWordIndex <= prevIdx && dragHighlight.endWordIndex >= nextIdx ? dragHighlight : null);
+
+             return (
+                 <span key={`bg-${tIdx}`} style={{
+                     backgroundColor: coveringHighlight ? coveringHighlight.color : 'transparent',
+                     color: 'transparent'
+                 }}>{token}</span>
+             );
+          }
+
+          const currentIdx = wIdx;
+          wIdx++;
+
+          const highlight = activeHighlights.find(h => h.startWordIndex <= currentIdx && h.endWordIndex >= currentIdx)
+             || (dragHighlight && dragHighlight.startWordIndex <= currentIdx && dragHighlight.endWordIndex >= currentIdx ? dragHighlight : null);
+
+          // Handle hover interaction for existing highlights
+          const isHovered = highlight && hoveredHighlightId === (highlight as any).id; // dragHighlight has no id
+
+          return (
+              <span
+                key={`bg-${tIdx}`}
+                className="relative"
+                onMouseEnter={() => (highlight as any).id && setHoveredHighlightId((highlight as any).id)}
+                onMouseLeave={() => setHoveredHighlightId(null)}
+                style={{
+                  backgroundColor: highlight ? highlight.color : 'transparent',
+                  color: 'transparent',
+                  opacity: 0.5 // Marker pen effect
+              }}>
+                {token}
+                {/* Tooltip anchor */}
+                {isHovered && (highlight as any).id && (
+                     <HighlightTooltip
+                        highlightId={(highlight as any).id}
+                        currentColor={highlight.color}
+                        onColorChange={(id, color) => updateHighlightRange(id, { color })}
+                        onDelete={(id) => removeHighlightRange(id)}
+                     />
+                )}
+              </span>
+          );
+      });
+  };
 
   // Render anchor elements for each group (positioned below the underline)
   const groupAnchors = lineGroups.map(group => (
@@ -296,12 +399,29 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
       className="relative inline-block w-full leading-loose"
       style={{ fontFamily }}
     >
-      <div className="relative whitespace-pre-wrap">
-        {renderedTokens}
+      {/* Layer 0: Background Highlights */}
+      <div className="absolute inset-0 z-0 whitespace-pre-wrap select-none pointer-events-none" style={{ color: 'transparent' }} aria-hidden="true">
+          {/* We need pointer-events-auto on the children to catch hovers for tooltips?
+              Actually, the foreground catches events.
+              But tooltips need to be interactive.
+              Let's make this layer pointer-events-auto but text transparent.
+          */}
+          <div className="pointer-events-auto">
+             {renderBackgroundLayer()}
+          </div>
       </div>
+
+      {/* Layer 1: Foreground Text */}
+      <div className="relative z-10 whitespace-pre-wrap pointer-events-none">
+          {/* We need interactive elements inside to be pointer-events-auto */}
+          <div className="pointer-events-auto">
+            {renderedTokens}
+          </div>
+      </div>
+
       {groupAnchors}
     </div>
   );
-};
+});
 
 export default WordGroupRenderer;

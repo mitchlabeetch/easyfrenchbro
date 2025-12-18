@@ -9,6 +9,11 @@
     transition: background-color 0.2s, color 0.2s;
   }
 
+  /* Z-Index Strategy */
+  .workspace-inner {
+      isolation: isolate;
+  }
+
   /* Dark mode on body */
   body.dark {
     background-color: #111827; /* gray-900 */
