@@ -19,9 +19,14 @@ export const TextRenderer: React.FC<TextRendererProps> = ({ text, language, line
     addToHighlightSelection
   } = useStore();
 
-  const words = text.split(/(\s+)/).filter(Boolean);
+  // Split by word characters (letters, numbers, accents) capturing the delimiter
+  // This produces: ["word", " punctuation ", "word2"]
+  // Adjust regex to be more inclusive of international characters if needed
+  const words = text.split(/([a-zA-Z0-9À-ÿ]+)/).filter(Boolean);
 
-  const handleWordClick = (wordId: string) => {
+  const handleWordClick = (wordId: string, isWord: boolean) => {
+    if (!isWord) return;
+
     if (selectionMode === 'arrow') {
       if (!selectedSourceId) {
         useStore.setState({ selectedSourceId: wordId });
@@ -51,15 +56,16 @@ export const TextRenderer: React.FC<TextRendererProps> = ({ text, language, line
 
   return (
     <div className={clsx("relative inline-block w-full", language === 'french' ? "font-serif" : "font-sans")}>
-      {words.map((word, idx) => {
-        // Skip pure whitespace logic if desired, but we render it.
-        // For interactions, we usually ignore pure whitespace clicks.
-        if (!word.trim()) return <span key={idx}>{word}</span>;
-
+      {words.map((part, idx) => {
+        const isWord = /^[a-zA-Z0-9À-ÿ]+$/.test(part);
         const wordId = `${lineId}-${language}-${idx}`;
 
+        // If it's punctuation or whitespace, just render it plain
+        if (!isWord) {
+            return <span key={idx}>{part}</span>;
+        }
+
         // Check if this word is inside any EXISTING highlight
-        // We use frenchWordIds / englishWordIds now
         const activeHighlight = highlights.find(h =>
           h.associatedLineId === lineId &&
           (language === 'french'
@@ -73,7 +79,7 @@ export const TextRenderer: React.FC<TextRendererProps> = ({ text, language, line
           <span
             key={wordId}
             id={wordId}
-            onClick={() => handleWordClick(wordId)}
+            onClick={() => handleWordClick(wordId, isWord)}
             className={clsx(
               "cursor-pointer hover:bg-gray-100 rounded px-0.5 transition-colors select-none",
               // Existing highlight
@@ -87,7 +93,7 @@ export const TextRenderer: React.FC<TextRendererProps> = ({ text, language, line
               backgroundColor: activeHighlight ? activeHighlight.colorCode : undefined
             }}
           >
-            {word}
+            {part}
           </span>
         );
       })}

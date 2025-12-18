@@ -88,6 +88,37 @@ export const PropertiesPanel: React.FC = () => {
                         />
                     </div>
 
+                    <div className="grid grid-cols-2 gap-2">
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">Start Anchor</label>
+                            <select
+                                className="w-full border rounded p-1 text-sm"
+                                value={arrow.startAnchor || 'auto'}
+                                onChange={(e) => updateArrow(arrow.id, { startAnchor: e.target.value as any })}
+                            >
+                                <option value="auto">Auto</option>
+                                <option value="top">Top</option>
+                                <option value="bottom">Bottom</option>
+                                <option value="left">Left</option>
+                                <option value="right">Right</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">End Anchor</label>
+                            <select
+                                className="w-full border rounded p-1 text-sm"
+                                value={arrow.endAnchor || 'auto'}
+                                onChange={(e) => updateArrow(arrow.id, { endAnchor: e.target.value as any })}
+                            >
+                                <option value="auto">Auto</option>
+                                <option value="top">Top</option>
+                                <option value="bottom">Bottom</option>
+                                <option value="left">Left</option>
+                                <option value="right">Right</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div className="pt-4 border-t">
                         <button
                             onClick={() => removeArrow(arrow.id)}
