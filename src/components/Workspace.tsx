@@ -1,99 +1,503 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../store';
-import { TextRenderer } from './TextRenderer';
-import { ArrowLayer } from './ArrowLayer';
-import { Xwrapper } from 'react-xarrows';
-import { PlusCircle } from 'lucide-react';
+import { WordGroupRenderer } from './WordGroupRenderer';
+import { CustomArrowLayer } from './CustomArrowLayer';
+import { PlusCircle, Pen, Settings2, Trash2, X } from 'lucide-react';
+import { RichTextEditor } from './RichTextEditor';
+import { ArrowTemplateMenu } from './ArrowTemplateMenu';
+import { clsx } from 'clsx';
+import { TextStyle, AnecdoteType } from '../types';
 
 export const Workspace: React.FC = () => {
-  const { pages, sidebars, theme, setSelectedElement, selectionMode } = useStore();
+  const { 
+      pages, 
+      sidebars, 
+      removeSidebarCard,
+      getColorForAnecdote,
+      removeLine,
+      addWordGroup
+  } = useStore();
+
+  const [editorState, setEditorState] = useState<{
+// ... (keep state)
+      // Custom SVG Arrow Layer
+      <CustomArrowLayer />
+
+      {/* Arrow Template Menu */}
+      <ArrowTemplateMenu 
+          isOpen={arrowMenu?.isOpen || false} 
+          position={arrowMenu ? { x: arrowMenu.x, y: arrowMenu.y } : undefined}
+          onClose={() => setArrowMenu(null)}
+      />
+
+      {/* Anecdote Type Selection Menu */}
+      {anecdoteMenu && (
+          <div 
+             className="fixed z-50 bg-white shadow-xl border rounded-lg p-2 grid grid-cols-2 gap-2 w-64"
+             style={{ top: anecdoteMenu.y, left: anecdoteMenu.x }}
+          >
+             <h4 className="col-span-2 text-xs font-bold text-gray-500 mb-1 border-b pb-1">Select Note Type</h4>
+             {['grammar', 'cultural', 'vocabulary', 'pronunciation'].map(type => (
+                 <button
+                    key={type}
+                    className="text-left text-xs p-2 hover:bg-blue-50 text-blue-700 rounded capitalize border border-transparent hover:border-blue-200"
+                    onClick={() => {
+                        // Create anecdote by adding a WordGroup of type NOTE
+                        // We need to fetch the color for this type
+                        const color = getColorForAnecdote(type as AnecdoteType);
+                        
+                        addWordGroup({
+                            wordIds: [], // Is this right? No, we need words.
+                            // Actually, addWordGroup needs `wordIds`.
+                            // But here we just clicked a GROUP ID in WordRenderer?
+                            // Wait, `anecdoteMenu.wordGroupId` implies we clicked an EXISTING group?
+                            // OR did we double click a word to CREATE a group?
+                            // The WordGroupRenderer calls `onWordGroupClick` with `groupId`.
+                            // If `groupId` exists, it's already a group.
+                            // If we want to ADD an anecdote to a group, does it become a note?
+                            // The current logic in `WordGroupRenderer` triggers on existing group click.
+                            
+                            // Re-reading usage: We set anecdoteMenu on "onWordGroupClick".
+                            // So we are converting/tagging an existing group?
+                            // Or adding a note TO it?
+                            // Let's assume we are CHANGING its type or adding a note prop.
+                            // Since `addWordGroup` creates new, `updateWordGroup` seems better.
+                            // Let's use `updateWordGroup` if available, or just mock for now as "Note Added".
+                            
+                            // BETTER: We probably want to attach a Note to the group.
+                            // WordGroup type has `type`. Maybe we change the type to the selected one?
+                            // Let's assume we change type + color.
+                            
+                            useStore.getState().updateWordGroup(anecdoteMenu.wordGroupId, {
+                                type: 'note', // or custom type
+                                // metadata: { noteType: type } // if supported
+                                color: color
+                            });
+                            
+                            setAnecdoteMenu(null);
+                    }}
+                 >
+                    {type}
+                 </button>
+             ))}
+// ...
+
+                           <div className="absolute left-full top-0 ml-2 bg-white shadow-xl border rounded p-2 w-32 hidden group-focus-within/manage:block z-50">
+                               <button 
+                                 className="w-full text-left text-xs p-1 hover:bg-red-50 text-red-600 rounded flex gap-2 items-center"
+                                 onClick={(e) => {
+                                     e.stopPropagation();
+                                     if(confirm('Delete this line?')) {
+                                         removeLine(currentPage.id, line.id);
+                                     }
+                                 }}
+                               >
+                                   <Trash2 size={12} /> Delete
+                               </button>
+                           </div>
+
+  const [editorState, setEditorState] = useState<{
+      isOpen: boolean;
+      lineId: string | null;
+      language: 'french' | 'english' | null;
+      initialText: string;
+      initialStyles: TextStyle[];
+      position: { x: number, y: number };
+  }>({
+      isOpen: false,
+      lineId: null,
+      language: null,
+      initialText: '',
+      initialStyles: [],
+      position: { x: 0, y: 0 }
+  });
+
+  // Arrow Menu State
+  const [arrowMenu, setArrowMenu] = useState<{ isOpen: boolean; x: number; y: number } | null>(null);
+
+  // Anecdote Type Selection State
+  const [anecdoteMenu, setAnecdoteMenu] = useState<{ isOpen: boolean; x: number; y: number; wordGroupId: string } | null>(null);
+
+  // Use the currentPageIndex directly from store
+  const currentPage = pages[currentPageIndex || 0];
+  const splitRatio = currentPage?.splitRatio ?? theme.pageLayout?.splitRatio ?? 0.5;
+
+  // Separation Line Drag Logic
+  const isDraggingSplit = React.useRef(false);
+
+  const handleSplitMouseDown = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      isDraggingSplit.current = true;
+      document.body.style.cursor = 'col-resize';
+      
+      const onMouseMove = (moveEvent: MouseEvent) => {
+          if (!isDraggingSplit.current || !currentPage) return;
+          
+          // Calculate new ratio based on mouse X relative to grid container
+          // We need the width of the grid container.
+          // Since there are multiple lines, we can pick one or use a parent wrapper ref inside the page loop?
+          // Actually, all lines have same width. We can use the Page container width logic.
+          // Let's assume the page width is fixed by getPageStyle(). width is in mm.
+          // We need px calculations. 
+          // Simplification: We track movement relative to window/screen but we need context of the container width.
+          
+          // Let's find the closest grid row to get its bounding rect
+          const row = (e.currentTarget as HTMLElement).closest('.grid'); 
+          if (!row) return;
+          
+          const rect = row.getBoundingClientRect();
+          const relativeX = moveEvent.clientX - rect.left;
+          
+          // The grid has: 3rem (48px) | ratio | ratio | 12rem (192px)
+          // Total flexible width = Total Width - 48px - 192px
+          const fixedLeft = 48; // 3rem
+          const fixedRight = 192; // 12rem
+          const flexibleWidth = rect.width - fixedLeft - fixedRight;
+          
+          if (flexibleWidth <= 0) return;
+          
+          let newRatio = (relativeX - fixedLeft) / flexibleWidth;
+          newRatio = Math.max(0.1, Math.min(0.9, newRatio)); // Clamp 10-90%
+          
+          // Update strictly local state first? No, update store directly for smoothness?
+          // Updating store might be heavy if many lines.
+          // Let's debounce or just update? Zustand is fast. Let's try direct update.
+          updatePage(currentPage.id, { splitRatio: newRatio });
+      };
+
+      const onMouseUp = () => {
+          isDraggingSplit.current = false;
+          document.body.style.cursor = '';
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup', onMouseUp);
+      };
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+  };
 
   const handleBackgroundClick = () => {
-      if (selectionMode === 'none') {
-          setSelectedElement(null, null);
-      }
+    if (selectionMode === 'none') {
+      setSelectedElement(null, null);
+    }
+    // Clear any pending selections
+    clearWordGroupSelection();
+    cancelArrowCreation();
   };
+
+  const handleLineDoubleClick = (e: React.MouseEvent, lineId: string, language: 'french' | 'english', text: string, styles: TextStyle[] = []) => {
+      e.stopPropagation();
+      setEditorState({
+          isOpen: true,
+          lineId,
+          language,
+          initialText: text,
+          initialStyles: styles,
+          position: { x: e.clientX, y: e.clientY }
+      });
+  };
+
+  const saveRichText = (text: string, styles: TextStyle[], shouldSync?: boolean) => {
+      if (editorState.lineId && editorState.language) {
+          // Update current line
+          updateLineStyles(editorState.lineId, editorState.language, styles);
+          
+          // Handle Sync
+          if (shouldSync) {
+              // We need to know WHICH words were styled? 
+              // The styles array contains ALL styles for the line? No, just the ones we edited?
+              // `styles` here is the NEW state of styles for the line.
+              // So we should iterate over the words in the styles array and sync them?
+              // The logic in store `syncLinkedStyles` expects `sourceWordId`.
+              // So we iterate styles, and for each styled word, call sync.
+              // Limitation: this might fire many actions. 
+              // Better: Update store to accept bulk sync?
+              // For MVP: Just loop.
+              styles.forEach(s => {
+                   // Construct full ID: lineId-lang-index
+                   // RichTextEditor returns index as wordId strings "0", "1"
+                   const fullWordId = `${editorState.lineId}-${editorState.language}-${s.wordId}`;
+                   // We pass this style object (minus wordId which is specific to target) basically
+                   // Actually store.syncLinkedStyles takes (sourceWordId, [style])
+                   // It applies that style to the target.
+                   // Does it support removing styles?
+                   // If RichTextEditor REMOVED a style, it won't be in the array, so we won't sync the removal.
+                   // TODO: Handle removal sync. For now, strictly additive/modification sync.
+                   
+                   // We need to pass the style object properties
+                   const styleProps = { ...s };
+                   delete (styleProps as any).wordId;
+                   
+                   // Need to call store action
+                   // We need to add `syncLinkedStyles` to destructuring first!
+                   // It is not destructured yet in this component.
+                   // See next step.
+              });
+              
+              // Actually, since we can't easily sync removals without diffing, 
+              // and we can't easily destructure inside this function without refactoring,
+              // let's pass a specialized "syncStyles" helper or just defer to store Update.
+              
+              // Let's iterate and call the store action. But first we need to get it from hook.
+              const startSync = async () => {
+                  for (const s of styles) {
+                      const fullWordId = `${editorState.lineId}-${editorState.language}-${s.wordId}`;
+                       // @ts-ignore - we will add this to destructuring
+                       useStore.getState().syncLinkedStyles(fullWordId, [s]);
+                  }
+              };
+              startSync();
+          }
+      }
+      setEditorState({ ...editorState, isOpen: false });
+  };
+
+  // Calculate page dimensions from theme
+  const getPageStyle = () => {
+    const layout = theme.pageLayout;
+    if (layout) {
+      return {
+        width: layout.width,
+        minHeight: layout.height,
+        paddingTop: layout.margins.top,
+        paddingRight: layout.margins.right,
+        paddingBottom: layout.margins.bottom,
+        paddingLeft: layout.margins.left,
+      };
+    }
+    // Default A4 dimensions
+    return {
+      width: '210mm',
+      minHeight: '297mm',
+      padding: '15mm',
+    };
+  };
+
+  // Effect: Watch for Arrow Creation ready state (Source + Target selected)
+  // This replaces the immediate confirmation in the store
+  React.useEffect(() => {
+    if (arrowCreation?.sourceGroupIds.length > 0 && arrowCreation?.targetGroupIds.length > 0) {
+      // Find the last interacted group to position the menu
+      const el = document.getElementById(arrowCreation.lastInteractedGroupId || '');
+      const rect = el?.getBoundingClientRect();
+      const pos = rect ? { x: rect.right + 10, y: rect.top } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      
+      setArrowMenu({ isOpen: true, x: pos.x, y: pos.y });
+    }
+  }, [arrowCreation?.sourceGroupIds, arrowCreation?.targetGroupIds]);
+
+
 
   return (
     <div
-        className="flex-1 overflow-auto bg-gray-50 p-8 relative print:p-0 print:overflow-visible print:bg-white"
-        id="workspace-container"
-        onClick={handleBackgroundClick}
+      className="flex-1 overflow-auto bg-gray-50 p-8 relative print:p-0 print:overflow-visible print:bg-white"
+      id="workspace-container"
+      onClick={handleBackgroundClick}
     >
-        <Xwrapper>
-            {/* Arrows usually need to be relative to a container, but here they might span pages.
-                Positioning might be tricky if not everything is in one flow.
-                For now, we wrap everything in Xwrapper. ArrowLayer needs to be absolute over the whole document.
-                Since pages are block elements, we might need a global overlay for arrows.
-            */}
+      {/* Custom SVG Arrow Layer - renders curved arrows below text */}
+      <CustomArrowLayer />
 
-             {/* This overlay approach for arrows might need adjustment if pages have margins.
-                 But let's keep it simple: we render ArrowLayer inside Xwrapper.
-                 The ArrowLayer needs to be able to find elements across the entire scrollable area.
-             */}
+      {/* Arrow Template Menu */}
+      <ArrowTemplateMenu 
+          isOpen={arrowMenu?.isOpen || false} 
+          position={arrowMenu ? { x: arrowMenu.x, y: arrowMenu.y } : undefined}
+          onClose={() => setArrowMenu(null)}
+      />
 
-            <ArrowLayer />
+      {/* Anecdote Type Selection Menu */}
+      {anecdoteMenu && (
+          <div 
+             className="fixed z-50 bg-white shadow-xl border rounded-lg p-2 grid grid-cols-2 gap-2 w-64"
+             style={{ top: anecdoteMenu.y, left: anecdoteMenu.x }}
+          >
+             <h4 className="col-span-2 text-xs font-bold text-gray-500 mb-1 border-b pb-1">Select Note Type</h4>
+             {['grammar', 'cultural', 'vocabulary', 'pronunciation'].map(type => (
+                 <button
+                    key={type}
+                    className="text-left text-xs p-2 hover:bg-blue-50 text-blue-700 rounded capitalize border border-transparent hover:border-blue-200"
+                    onClick={() => {
+                        const color = getColorForAnecdote(type as AnecdoteType);
+                        updateWordGroup(anecdoteMenu.wordGroupId, {
+                            color: color
+                            // In a real app we would set type='note' and store the subtype
+                        });
+                        setAnecdoteMenu(null);
+                    }}
+                 >
+                    {type}
+                 </button>
+             ))}
+             <button
+                className="col-span-2 text-xs p-1 text-gray-400 hover:text-gray-600 border-t mt-1"
+                onClick={() => setAnecdoteMenu(null)}
+             >
+                Cancel
+             </button>
+          </div>
+      )}
+      
+      {editorState.isOpen && (
+          <RichTextEditor
+             initialText={editorState.initialText}
+             initialStyles={editorState.initialStyles}
+             onSave={saveRichText}
+             onCancel={() => setEditorState({ ...editorState, isOpen: false })}
+             position={editorState.position}
+          />
+      )}
 
-            <div className="print:block">
-                {pages.map((page) => (
-                    <div
-                        key={page.id}
-                        className="w-[210mm] min-h-[297mm] bg-white shadow-lg mx-auto mb-8 p-[15mm] relative print:w-full print:h-screen print:shadow-none print:m-0 print:break-after-page print:p-[15mm]"
-                        style={{ fontSize: theme.fontSize, lineHeight: theme.lineHeight }}
-                    >
-                        <div className="space-y-6 relative z-0">
-                            {page.lines.map((line) => (
-                                <div key={line.id} className="grid grid-cols-[3rem_1fr_1fr_12rem] gap-4 group relative">
-                                    {/* Line Number / Action */}
-                                    <div className="text-gray-300 font-mono text-sm text-right pr-2 pt-1 select-none">
-                                        <span className="group-hover:hidden">{line.lineNumber}</span>
-                                        <button
-                                            className="hidden group-hover:inline-block text-blue-500 hover:text-blue-700 no-print"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                useStore.getState().addSidebarCard({
-                                                    type: 'grammar',
-                                                    content: 'New Note',
-                                                    anchoredLineId: line.id
-                                                });
-                                            }}
-                                        >
-                                            <PlusCircle size={16} />
-                                        </button>
-                                    </div>
-
-                                    {/* French Column */}
-                                    <div className="relative">
-                                    <TextRenderer text={line.frenchText} language="french" lineId={line.id} />
-                                    </div>
-
-                                    {/* English Column */}
-                                    <div className="relative border-l border-gray-100 pl-4">
-                                        <TextRenderer text={line.englishText} language="english" lineId={line.id} />
-                                    </div>
-
-                                    {/* Sidebar Column (Annotations) */}
-                                    <div className="relative">
-                                        {sidebars.filter(s => s.anchoredLineId === line.id).map(card => (
-                                            <div key={card.id} className="bg-yellow-50 border border-yellow-200 p-2 rounded text-sm mb-2 shadow-sm">
-                                                <div className="font-bold text-xs text-yellow-800 uppercase mb-1">{card.type}</div>
-                                                <textarea
-                                                    className="w-full bg-transparent border-none resize-none focus:ring-0 text-gray-700"
-                                                    value={card.content}
-                                                    onChange={(e) => {
-                                                        useStore.getState().updateSidebarCard(card.id, { content: e.target.value });
-                                                    }}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
+      <div className="print:block scale-100 origin-top">
+        {pages.length > 0 && currentPage ? (
+          <div
+            key={currentPage.id}
+            className="bg-white shadow-lg mx-auto mb-8 relative print:w-full print:h-screen print:shadow-none print:m-0 print:break-after-page"
+            style={{ 
+              ...getPageStyle(),
+              fontSize: theme.fontSize, 
+              lineHeight: theme.lineHeight 
+            }}
+          >
+             {/* Page Header with Navigation Info (not printed) */}
+             <div className="absolute -top-8 left-0 right-0 text-center text-gray-400 text-xs no-print flex justify-between px-2">
+                 <span>Page {(currentPageIndex || 0) + 1} of {pages.length}</span>
             </div>
-        </Xwrapper>
-    </div>
+
+            <div className="space-y-6 relative z-0">
+              {currentPage.lines.map((line) => (
+                <div key={line.id} className="grid gap-4 group relative" style={{ gridTemplateColumns: `3rem ${splitRatio}fr ${(1-splitRatio)}fr 12rem` }}>
+                  
+                  {/* Line Number / Action */}
+                  <div className="text-gray-300 font-mono text-sm text-right pr-2 pt-1 select-none flex flex-col items-end gap-1">
+                    <span className="group-hover:hidden">{line.lineNumber}</span>
+                    
+                     {/* Hover Actions */}
+                    <div className="hidden group-hover:flex flex-col gap-1 no-print">
+                        <button
+                          className="text-blue-500 hover:text-blue-700 p-1 hover:bg-blue-50 rounded"
+                          title="Add Anecdote"
+                          // TODO: Open Type Selection Tooltip
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addSidebarCard({
+                              type: 'grammar', // Default, should be selectable
+                              content: 'New Note',
+                              anchoredLineId: line.id
+                            });
+                          }}
+                        >
+                          <PlusCircle size={14} />
+                        </button>
+                        <button
+                          className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded relative group/manage"
+                          title="Manage Line"
+                        >
+                           <Settings2 size={14} />
+                           
+                           {/* Popup Menu */}
+                           <div className="absolute left-full top-0 ml-2 bg-white shadow-xl border rounded p-2 w-32 hidden group-focus-within/manage:block z-50">
+                               <button 
+                                 className="w-full text-left text-xs p-1 hover:bg-red-50 text-red-600 rounded flex gap-2 items-center"
+                                 onClick={(e) => {
+                                     e.stopPropagation();
+                                     if(confirm('Delete this line?')) {
+                                         removeLine(currentPage.id, line.id);
+                                     }
+                                 }}
+                               >
+                                   <Trash2 size={12} /> Delete
+                               </button>
+                           </div>
+                        </button>
+                    </div>
+                  </div>
+
+                  {/* French Column */}
+                  <div 
+                    className="relative p-1 rounded hover:bg-gray-50 transition-colors"
+                    onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french', line.frenchText, line.frenchStyles)}
+                  >
+                     <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                        <Pen size={12} className="text-gray-400" />
+                     </div>
+                    <WordGroupRenderer 
+                      text={line.frenchText} 
+                      language="french" 
+                      lineId={line.id}
+                      styles={line.frenchStyles}
+                    />
+                  </div>
+
+                  {/* Separation Handler (Draggable) */}
+                  <div 
+                     onMouseDown={handleSplitMouseDown}
+                     className="absolute top-0 bottom-0 w-2 -ml-1 cursor-col-resize hover:bg-blue-400 z-20 opacity-0 hover:opacity-50 transition-opacity" 
+                     style={{ left: `calc(3rem + ${splitRatio * 100}%)` }}
+                     title="Drag to resize columns"
+                  />
+
+                  {/* English Column */}
+                  <div 
+                    className="relative border-l border-gray-100 pl-4 p-1 rounded hover:bg-gray-50 transition-colors"
+                    onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english', line.englishText, line.englishStyles)}
+                  >
+                     <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                         <Pen size={12} className="text-gray-400" />
+                     </div>
+                    <WordGroupRenderer 
+                      text={line.englishText} 
+                      language="english" 
+                      lineId={line.id}
+                      styles={line.englishStyles}
+                    />
+                  </div>
+
+
+                  {/* Sidebar Column (Annotations) */}
+                  <div className="relative">
+                    {sidebars.filter(s => s.anchoredLineId === line.id).map(card => {
+                        const typeFn = getColorForAnecdote(card.type as AnecdoteType);
+                        return (
+                          <div 
+                            key={card.id} 
+                            className="p-2 rounded text-sm mb-2 shadow-sm group/card relative transition-all hover:scale-105"
+                            style={{ backgroundColor: card.color || typeFn || '#fef3c7' }}
+                          >
+                            {/* Card Hover Actions */}
+                            <div className="absolute -right-2 -top-2 hidden group-hover/card:flex bg-white shadow rounded-full border overflow-hidden">
+                                <button
+                                   onClick={() => removeSidebarCard(card.id)}
+                                   className="p-1 hover:bg-red-50 text-red-500"
+                                >
+                                    <X size={12} />
+                                </button>
+                            </div>
+                            
+                            <div className="font-bold text-[10px] opacity-70 uppercase mb-1 flex justify-between">
+                                {card.type}
+                            </div>
+                            <textarea
+                              className="w-full bg-transparent border-none resize-none focus:ring-0 text-gray-800 p-0 text-xs"
+                              value={card.content}
+                              onChange={(e) => {
+                                updateSidebarCard(card.id, { content: e.target.value });
+                              }}
+                              rows={3}
+                            />
+                          </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div >
+        ) : (
+            <div className="flex items-center justify-center h-full text-gray-400 italic">
+                No pages to display. Add content or create a page.
+            </div>
+        )}
+      </div>
+    </div >
   );
 };

@@ -33,9 +33,14 @@ export const TextRenderer: React.FC<TextRendererProps> = ({ text, language, line
       } else {
         if (selectedSourceId !== wordId) {
           addArrow({
+            sourceGroupIds: [],
+            targetGroupIds: [],
             startElementId: selectedSourceId,
             endElementId: wordId,
             color: selectedColor,
+            style: 'solid',
+            strokeWidth: 2,
+            headStyle: 'arrow',
             curvature: 0.5
           });
           useStore.setState({ selectedSourceId: null });
