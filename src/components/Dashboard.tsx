@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { FolderOpen, FilePlus, Loader, Clock, Trash2 } from 'lucide-react';
+import { FolderOpen, FilePlus, Loader, Clock } from 'lucide-react';
 
 interface DashboardProps {
   onOpenProject: (name: string) => void;
@@ -12,7 +12,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreatePro
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newProjectName, setNewProjectName] = useState('');
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadProjects();
@@ -24,7 +23,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreatePro
       const list = await fetchProjects();
       setProjects(list);
     } catch (err) {
-      setError('Failed to load projects');
+      console.error('Failed to load projects', err);
     } finally {
       setLoading(false);
     }

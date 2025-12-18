@@ -5,7 +5,6 @@ import { CustomArrowLayer } from './CustomArrowLayer';
 import { PlusCircle, Pen, Settings2, Trash2, X } from 'lucide-react';
 import { RichTextEditor } from './RichTextEditor';
 import { ArrowTemplateMenu } from './ArrowTemplateMenu';
-import { clsx } from 'clsx';
 import { TextStyle, AnecdoteType } from '../types';
 
 export const Workspace: React.FC = () => {
@@ -13,88 +12,23 @@ export const Workspace: React.FC = () => {
       pages, 
       sidebars, 
       removeSidebarCard,
+      addSidebarCard,
+      updateSidebarCard,
       getColorForAnecdote,
       removeLine,
-      addWordGroup
+      updateWordGroup,
+      theme,
+      currentPageIndex,
+      updatePage,
+      arrowCreation,
+      selectionMode,
+      setSelectedElement,
+      clearWordGroupSelection,
+      cancelArrowCreation,
+      updateLineStyles
   } = useStore();
 
-  const [editorState, setEditorState] = useState<{
-// ... (keep state)
-      // Custom SVG Arrow Layer
-      <CustomArrowLayer />
 
-      {/* Arrow Template Menu */}
-      <ArrowTemplateMenu 
-          isOpen={arrowMenu?.isOpen || false} 
-          position={arrowMenu ? { x: arrowMenu.x, y: arrowMenu.y } : undefined}
-          onClose={() => setArrowMenu(null)}
-      />
-
-      {/* Anecdote Type Selection Menu */}
-      {anecdoteMenu && (
-          <div 
-             className="fixed z-50 bg-white shadow-xl border rounded-lg p-2 grid grid-cols-2 gap-2 w-64"
-             style={{ top: anecdoteMenu.y, left: anecdoteMenu.x }}
-          >
-             <h4 className="col-span-2 text-xs font-bold text-gray-500 mb-1 border-b pb-1">Select Note Type</h4>
-             {['grammar', 'cultural', 'vocabulary', 'pronunciation'].map(type => (
-                 <button
-                    key={type}
-                    className="text-left text-xs p-2 hover:bg-blue-50 text-blue-700 rounded capitalize border border-transparent hover:border-blue-200"
-                    onClick={() => {
-                        // Create anecdote by adding a WordGroup of type NOTE
-                        // We need to fetch the color for this type
-                        const color = getColorForAnecdote(type as AnecdoteType);
-                        
-                        addWordGroup({
-                            wordIds: [], // Is this right? No, we need words.
-                            // Actually, addWordGroup needs `wordIds`.
-                            // But here we just clicked a GROUP ID in WordRenderer?
-                            // Wait, `anecdoteMenu.wordGroupId` implies we clicked an EXISTING group?
-                            // OR did we double click a word to CREATE a group?
-                            // The WordGroupRenderer calls `onWordGroupClick` with `groupId`.
-                            // If `groupId` exists, it's already a group.
-                            // If we want to ADD an anecdote to a group, does it become a note?
-                            // The current logic in `WordGroupRenderer` triggers on existing group click.
-                            
-                            // Re-reading usage: We set anecdoteMenu on "onWordGroupClick".
-                            // So we are converting/tagging an existing group?
-                            // Or adding a note TO it?
-                            // Let's assume we are CHANGING its type or adding a note prop.
-                            // Since `addWordGroup` creates new, `updateWordGroup` seems better.
-                            // Let's use `updateWordGroup` if available, or just mock for now as "Note Added".
-                            
-                            // BETTER: We probably want to attach a Note to the group.
-                            // WordGroup type has `type`. Maybe we change the type to the selected one?
-                            // Let's assume we change type + color.
-                            
-                            useStore.getState().updateWordGroup(anecdoteMenu.wordGroupId, {
-                                type: 'note', // or custom type
-                                // metadata: { noteType: type } // if supported
-                                color: color
-                            });
-                            
-                            setAnecdoteMenu(null);
-                    }}
-                 >
-                    {type}
-                 </button>
-             ))}
-// ...
-
-                           <div className="absolute left-full top-0 ml-2 bg-white shadow-xl border rounded p-2 w-32 hidden group-focus-within/manage:block z-50">
-                               <button 
-                                 className="w-full text-left text-xs p-1 hover:bg-red-50 text-red-600 rounded flex gap-2 items-center"
-                                 onClick={(e) => {
-                                     e.stopPropagation();
-                                     if(confirm('Delete this line?')) {
-                                         removeLine(currentPage.id, line.id);
-                                     }
-                                 }}
-                               >
-                                   <Trash2 size={12} /> Delete
-                               </button>
-                           </div>
 
   const [editorState, setEditorState] = useState<{
       isOpen: boolean;
@@ -198,53 +132,18 @@ export const Workspace: React.FC = () => {
       });
   };
 
-  const saveRichText = (text: string, styles: TextStyle[], shouldSync?: boolean) => {
+  const saveRichText = (_text: string, styles: TextStyle[], shouldSync?: boolean) => {
       if (editorState.lineId && editorState.language) {
           // Update current line
           updateLineStyles(editorState.lineId, editorState.language, styles);
           
           // Handle Sync
           if (shouldSync) {
-              // We need to know WHICH words were styled? 
-              // The styles array contains ALL styles for the line? No, just the ones we edited?
-              // `styles` here is the NEW state of styles for the line.
-              // So we should iterate over the words in the styles array and sync them?
-              // The logic in store `syncLinkedStyles` expects `sourceWordId`.
-              // So we iterate styles, and for each styled word, call sync.
-              // Limitation: this might fire many actions. 
-              // Better: Update store to accept bulk sync?
-              // For MVP: Just loop.
-              styles.forEach(s => {
-                   // Construct full ID: lineId-lang-index
-                   // RichTextEditor returns index as wordId strings "0", "1"
-                   const fullWordId = `${editorState.lineId}-${editorState.language}-${s.wordId}`;
-                   // We pass this style object (minus wordId which is specific to target) basically
-                   // Actually store.syncLinkedStyles takes (sourceWordId, [style])
-                   // It applies that style to the target.
-                   // Does it support removing styles?
-                   // If RichTextEditor REMOVED a style, it won't be in the array, so we won't sync the removal.
-                   // TODO: Handle removal sync. For now, strictly additive/modification sync.
-                   
-                   // We need to pass the style object properties
-                   const styleProps = { ...s };
-                   delete (styleProps as any).wordId;
-                   
-                   // Need to call store action
-                   // We need to add `syncLinkedStyles` to destructuring first!
-                   // It is not destructured yet in this component.
-                   // See next step.
-              });
-              
-              // Actually, since we can't easily sync removals without diffing, 
-              // and we can't easily destructure inside this function without refactoring,
-              // let's pass a specialized "syncStyles" helper or just defer to store Update.
-              
-              // Let's iterate and call the store action. But first we need to get it from hook.
+              // Sync styles to linked words
               const startSync = async () => {
                   for (const s of styles) {
                       const fullWordId = `${editorState.lineId}-${editorState.language}-${s.wordId}`;
-                       // @ts-ignore - we will add this to destructuring
-                       useStore.getState().syncLinkedStyles(fullWordId, [s]);
+                      useStore.getState().syncLinkedStyles(fullWordId, [s]);
                   }
               };
               startSync();

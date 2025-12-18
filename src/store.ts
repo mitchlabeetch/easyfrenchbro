@@ -40,6 +40,7 @@ const DEFAULT_PALETTE: ColorPalette = {
     history: '#fee2e2', // Red-ish
     falseFriend: '#ffedd5', // Orange-ish
     pronunciation: '#f3e8ff', // Purple-ish
+    vocab: '#dcfce7', // Green-ish
 
     custom: ['#e5e7eb', '#d1d5db', '#9ca3af', '#4b5563', '#1f2937']
   },
@@ -370,6 +371,10 @@ export const useStore = create<StoreState>((set, get) => ({
 
   removeLinkedPair: (id) => set((state) => ({
       linkedPairs: state.linkedPairs.filter(p => p.id !== id)
+  })),
+
+  updateLinkedPair: (id, updates) => set((state) => ({
+      linkedPairs: state.linkedPairs.map(p => p.id === id ? { ...p, ...updates } : p)
   })),
 
   syncLinkedStyles: (sourceWordId, styles) => set((state) => {
@@ -793,7 +798,7 @@ export const useStore = create<StoreState>((set, get) => ({
     }));
   },
 
-  confirmArrowTarget: (targetGroupIds) => { 
+  confirmArrowTarget: (targetGroupIds: string[]) => { 
       const state = get();
       // Just add target, let component handle the "Ready" state to show menu
       state.addArrowTargetGroup(targetGroupIds[0]); 
@@ -817,74 +822,7 @@ export const useStore = create<StoreState>((set, get) => ({
     return { highlightSelection: newSelection };
   }),
 
-  clearHighlightSelection: () => set({ highlightSelection: { frenchIds: [], englishIds: [], lineId: null } }),
-
-  // Linked Pairs Implementation
-  addLinkedPair: (pair) => set((state) => ({
-    linkedPairs: [...state.linkedPairs, { ...pair, id: generateId() }]
-  })),
-
-  removeLinkedPair: (id) => set((state) => ({
-    linkedPairs: state.linkedPairs.filter(p => p.id !== id)
-  })),
-
-  updateLinkedPair: (id, updates) => set((state) => ({
-    linkedPairs: state.linkedPairs.map(p => p.id === id ? { ...p, ...updates } : p)
-  })),
-
-  syncLinkedStyles: (sourceWordId, styles) => set((state) => {
-    // Find pairs containing this word
-    const affectedPairs = state.linkedPairs.filter(p => p.sourceWordIds.includes(sourceWordId) || p.targetWordIds.includes(sourceWordId));
-    
-    if (affectedPairs.length === 0) return state;
-
-    // Deep copy pages to update styles
-    const newPages = [...state.pages];
-
-    affectedPairs.forEach(pair => {
-       // Determine target words (if source is in sourceWords, target is targetWords, and vice versa)
-       // This logic assumes 1-to-1 or Group-to-Group style syncing
-       // For simplicity, we apply the style to ALL words in the pair, or just the counterparts?
-       // Let's apply to counterparts.
-       
-       const isSource = pair.sourceWordIds.includes(sourceWordId);
-       const targetIds = isSource ? pair.targetWordIds : pair.sourceWordIds;
-       const lineId = pair.lineId;
-
-       // Find line
-       const pageIndex = newPages.findIndex(p => p.lines.some(l => l.id === lineId));
-       if (pageIndex === -1) return;
-
-       const page = { ...newPages[pageIndex] };
-       const lineIndex = page.lines.findIndex(l => l.id === lineId);
-       const line = { ...page.lines[lineIndex] };
-
-       // Update styles for target words
-       // We need to merge styles or replace? Replace for now (syncing)
-       const targetLang = isSource ? 'english' : 'french'; // Assumption based on standard pair structure
-       const currentStyles = targetLang === 'french' ? (line.frenchStyles || []) : (line.englishStyles || []);
-       
-       let updatedStyles = [...currentStyles];
-       
-       targetIds.forEach(targetId => {
-          // Remove existing style for this word
-          updatedStyles = updatedStyles.filter(s => s.wordId !== targetId);
-          // Add new style
-          updatedStyles.push({ ...styles[0], wordId: targetId }); // Assuming single style object per word for now
-       });
-
-       if (targetLang === 'french') {
-         line.frenchStyles = updatedStyles;
-       } else {
-         line.englishStyles = updatedStyles;
-       }
-
-       page.lines[lineIndex] = line;
-       newPages[pageIndex] = page;
-    });
-
-    return { pages: newPages };
-  })
+  clearHighlightSelection: () => set({ highlightSelection: { frenchIds: [], englishIds: [], lineId: null } })
 }));
 
 // Migration function to handle old project format

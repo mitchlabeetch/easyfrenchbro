@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
-import { Trash2, Palette, Layout, Settings, Plus, Save, Type, Copy, RefreshCw } from 'lucide-react';
+import { Trash2, Palette, Layout, Settings, Plus, Copy, RefreshCw } from 'lucide-react';
 import { ArrowStyle, ArrowHeadStyle, WordGroupType, PageSize, AnecdoteType } from '../types';
 
 const WORD_TYPE_LABELS: Record<WordGroupType, string> = {
@@ -460,8 +460,8 @@ export const PropertiesPanel: React.FC = () => {
          <h2 className="font-bold text-sm uppercase text-gray-600 flex items-center gap-2">
             {selectedElementType === 'wordGroup' ? 'Word Group' : 'Arrow Connection'}
          </h2>
-         <button onClick={() => useStore.getState().setSelectedElement(null, null)} className="text-gray-400 hover:text-gray-600">
-             <Layout size={14} title="Back to Settings" />
+         <button onClick={() => useStore.getState().setSelectedElement(null, null)} className="text-gray-400 hover:text-gray-600" title="Back to Settings">
+             <Layout size={14} />
          </button>
        </div>
        

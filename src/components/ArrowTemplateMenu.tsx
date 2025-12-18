@@ -2,12 +2,23 @@ import React from 'react';
 import { ArrowStyle, ArrowHeadStyle } from '../types';
 
 interface ArrowTemplateMenuProps {
-  onSelect: (template: { style: ArrowStyle; headStyle: ArrowHeadStyle; color?: string }) => void;
-  onCancel: () => void;
-  position: { x: number; y: number };
+  isOpen?: boolean;
+  onSelect?: (template: { style: ArrowStyle; headStyle: ArrowHeadStyle; color?: string }) => void;
+  onCancel?: () => void;
+  onClose?: () => void;
+  position?: { x: number; y: number };
 }
 
-export const ArrowTemplateMenu: React.FC<ArrowTemplateMenuProps> = ({ onSelect, onCancel, position }) => {
+export const ArrowTemplateMenu: React.FC<ArrowTemplateMenuProps> = ({ 
+  isOpen = true, 
+  onSelect, 
+  onCancel, 
+  onClose,
+  position 
+}) => {
+  const handleClose = onCancel || onClose;
+  if (!isOpen || !position) return null;
+
   const templates = [
     { label: 'Standard', style: 'solid', head: 'arrow', color: '#000000' },
     { label: 'Dashed Info', style: 'dashed', head: 'dot', color: '#6b7280' },
@@ -25,7 +36,7 @@ export const ArrowTemplateMenu: React.FC<ArrowTemplateMenuProps> = ({ onSelect, 
         <button
           key={i}
           className="text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center justify-between group"
-          onClick={() => onSelect({ style: t.style, headStyle: t.head, color: t.color })}
+          onClick={() => onSelect?.({ style: t.style, headStyle: t.head, color: t.color })}
         >
           <span>{t.label}</span>
           <div className="w-8 h-px bg-current" style={{ borderTopStyle: t.style, color: t.color }} />
@@ -34,7 +45,7 @@ export const ArrowTemplateMenu: React.FC<ArrowTemplateMenuProps> = ({ onSelect, 
       <hr className="my-1" />
       <button 
         className="text-xs text-center text-gray-400 hover:text-gray-600 py-1"
-        onClick={onCancel}
+        onClick={handleClose}
       >
         Cancel
       </button>

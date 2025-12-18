@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { X, Link as LinkIcon, Unlink } from 'lucide-react';
-import { WordGroupRenderer } from './WordGroupRenderer';
 
 interface LinkingModalProps {
   isOpen: boolean;
@@ -24,11 +23,6 @@ export const LinkingModal: React.FC<LinkingModalProps> = ({ isOpen, onClose }) =
 
   const currentPage = pages[currentPageIndex || 0];
   if (!currentPage) return null;
-
-  // Organize pairs by line for display
-  const pairsOnPage = linkedPairs.filter(p => 
-    currentPage.lines.some(l => l.id === p.lineId)
-  );
 
   const handleWordClick = (wordId: string, lang: 'french' | 'english') => {
     if (lang === 'french') {

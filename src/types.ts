@@ -121,12 +121,13 @@ export interface ColorPalette {
     // Text Color (1)
     text: string;
 
-    // Anecdotes (5)
+    // Anecdotes (6)
     grammar: string;
     spoken: string;
     history: string;
     falseFriend: string;
     pronunciation: string;
+    vocab: string;
 
     custom: string[]; // Additional custom colors
   };
