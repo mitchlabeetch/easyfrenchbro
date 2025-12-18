@@ -1,12 +1,14 @@
 import { create } from 'zustand';
-import { ProjectState, LineData, SpanHighlight, ArrowConnector, SidebarCard, ThemeConfig } from './types';
+import { ProjectState, PageData, LineData, SpanHighlight, ArrowConnector, SidebarCard, ThemeConfig } from './types';
+import Papa from 'papaparse';
+import { v4 as uuidv4 } from 'uuid';
 
-const generateId = () => Math.random().toString(36).substring(2, 9);
+const generateId = () => uuidv4();
 
 interface StoreState extends ProjectState {
   // Actions
   setMetadata: (metadata: Partial<ProjectState['metadata']>) => void;
-  setLines: (lines: LineData[]) => void;
+  setPages: (pages: PageData[]) => void;
   addHighlight: (highlight: Omit<SpanHighlight, 'id'>) => void;
   removeHighlight: (id: string) => void;
   updateHighlight: (id: string, updates: Partial<SpanHighlight>) => void;
@@ -19,6 +21,9 @@ interface StoreState extends ProjectState {
   updateTheme: (theme: Partial<ThemeConfig>) => void;
 
   setProjectState: (state: ProjectState) => void;
+
+  importFromCSV: (csvString: string) => void;
+  reflowPages: (linesPerPage: number) => void;
 
   parseAndSetText: (rawFrench: string, rawEnglish: string) => void;
 
@@ -50,7 +55,7 @@ export const useStore = create<StoreState>((set) => ({
     difficultyLevel: 'Intermediate',
     year: new Date().getFullYear(),
   },
-  lines: [],
+  pages: [{ id: 'page-1', lines: [] }],
   highlights: [],
   arrows: [],
   sidebars: [],
@@ -76,7 +81,7 @@ export const useStore = create<StoreState>((set) => ({
   selectedElementType: null,
 
   setMetadata: (metadata) => set((state) => ({ metadata: { ...state.metadata, ...metadata } })),
-  setLines: (lines) => set({ lines }),
+  setPages: (pages) => set({ pages }),
 
   addHighlight: (highlight) => set((state) => ({
     highlights: [...state.highlights, { ...highlight, id: generateId() }]
@@ -128,6 +133,62 @@ export const useStore = create<StoreState>((set) => ({
       highlightSelection: { frenchIds: [], englishIds: [], lineId: null }
   }),
 
+  importFromCSV: (csvString) => {
+    Papa.parse(csvString, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const rows = results.data as any[];
+        const allLines: LineData[] = rows.map((row, index) => ({
+          id: generateId(),
+          lineNumber: index + 1,
+          frenchText: row['French'] || '',
+          englishText: row['English'] || '',
+          type: row['Type'] || '',
+          note: row['Note'] || ''
+        }));
+
+        // Default pagination: 25 lines per page
+        const linesPerPage = 25;
+        const pages: PageData[] = [];
+        for (let i = 0; i < allLines.length; i += linesPerPage) {
+          pages.push({
+            id: generateId(),
+            lines: allLines.slice(i, i + linesPerPage)
+          });
+        }
+
+        if (pages.length === 0) {
+            pages.push({ id: generateId(), lines: [] });
+        }
+
+        set({ pages, highlights: [], arrows: [], sidebars: [] });
+      },
+      error: (error: any) => {
+        console.error("CSV Parse Error:", error);
+        alert("Failed to parse CSV");
+      }
+    });
+  },
+
+  reflowPages: (linesPerPage) => set((state) => {
+    const allLines = state.pages.flatMap(p => p.lines);
+    const newPages: PageData[] = [];
+
+    for (let i = 0; i < allLines.length; i += linesPerPage) {
+      newPages.push({
+        id: generateId(),
+        lines: allLines.slice(i, i + linesPerPage)
+      });
+    }
+
+    if (newPages.length === 0) {
+        newPages.push({ id: generateId(), lines: [] });
+    }
+
+    return { pages: newPages };
+  }),
+
   parseAndSetText: (rawFrench, rawEnglish) => {
     const frLines = rawFrench.split('\n');
     const enLines = rawEnglish.split('\n');
@@ -138,8 +199,6 @@ export const useStore = create<StoreState>((set) => ({
       const frText = frLines[i] ? frLines[i].trim() : '';
       const enText = enLines[i] ? enLines[i].trim() : '';
 
-      // Only add line if at least one language has content, or preserve empty lines for spacing
-      // Here we allow empty lines to act as spacers if both are empty strings but present in array
       lines.push({
         id: generateId(),
         lineNumber: i + 1,
@@ -147,7 +206,22 @@ export const useStore = create<StoreState>((set) => ({
         englishText: enText
       });
     }
-    set({ lines, highlights: [], arrows: [], sidebars: [] });
+    // Put everything in one page by default or use standard pagination?
+    // Let's use standard 25 to be consistent
+    const linesPerPage = 25;
+    const pages: PageData[] = [];
+    for (let i = 0; i < lines.length; i += linesPerPage) {
+        pages.push({
+            id: generateId(),
+            lines: lines.slice(i, i + linesPerPage)
+        });
+    }
+
+    if (pages.length === 0) {
+        pages.push({ id: generateId(), lines: [] });
+    }
+
+    set({ pages, highlights: [], arrows: [], sidebars: [] });
   },
 
   setSelectedElement: (id, type) => set({ selectedElementId: id, selectedElementType: type }),

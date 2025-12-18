@@ -12,6 +12,13 @@ export interface LineData {
   frenchText: string;
   englishText: string;
   lineNumber: number;
+  type?: string;
+  note?: string;
+}
+
+export interface PageData {
+  id: string;
+  lines: LineData[];
 }
 
 export interface SpanHighlight {
@@ -52,7 +59,7 @@ export interface ThemeConfig {
 
 export interface ProjectState {
   metadata: ProjectMetadata;
-  lines: LineData[];
+  pages: PageData[];
   highlights: SpanHighlight[];
   arrows: ArrowConnector[];
   sidebars: SidebarCard[];
