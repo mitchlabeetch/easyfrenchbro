@@ -7,3 +7,10 @@
     @apply bg-gray-100 text-gray-900;
   }
 }
+
+@media print {
+  .no-print { display: none !important; }
+  body, #root, #workspace-container { background: white !important; margin: 0; padding: 0; overflow: visible !important; height: auto; }
+  /* Hide scrollbars */
+  ::-webkit-scrollbar { display: none; }
+}

@@ -1,0 +1,14 @@
+
+> bilingual-book-layout-tool@1.0.0 dev
+> concurrently "npm run server" "vite"
+
+[0]
+[0] > bilingual-book-layout-tool@1.0.0 server
+[0] > node server.js
+[0]
+[1]
+[1]   VITE v5.4.21  ready in 306 ms
+[1]
+[1]   ➜  Local:   http://localhost:5173/
+[1]   ➜  Network: use --host to expose
+[0] Server running on http://localhost:3001

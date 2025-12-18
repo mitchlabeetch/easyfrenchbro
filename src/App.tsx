@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Workspace } from './components/Workspace';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { useStore } from './store';
-import { Download, MoveDiagonal, Languages, Highlighter, Check, X } from 'lucide-react';
+import { Download, MoveDiagonal, Languages, Highlighter, Check, X, Save, FolderOpen } from 'lucide-react';
 import { clsx } from 'clsx';
 
 function App() {
@@ -13,8 +13,11 @@ function App() {
     theme,
     highlightSelection,
     addHighlight,
-    clearHighlightSelection
+    clearHighlightSelection,
+    setProjectState
   } = useStore();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [inputFrench, setInputFrench] = useState("Le chat mange la souris.\nIl fait beau aujourd'hui.");
   const [inputEnglish, setInputEnglish] = useState("The cat eats the mouse.\nIt is nice today.");
@@ -52,6 +55,48 @@ function App() {
       }
   };
 
+  const handleSaveProject = () => {
+      const state = useStore.getState();
+      const projectData = {
+          metadata: state.metadata,
+          lines: state.lines,
+          highlights: state.highlights,
+          arrows: state.arrows,
+          sidebars: state.sidebars,
+          theme: state.theme
+      };
+
+      const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `project-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+  };
+
+  const handleLoadProject = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+          try {
+              const json = JSON.parse(e.target?.result as string);
+              // Basic validation could go here
+              setProjectState(json);
+          } catch (error) {
+              console.error("Failed to load project", error);
+              alert("Invalid project file");
+          }
+      };
+      reader.readAsText(file);
+      // Reset input
+      event.target.value = '';
+  };
+
   const confirmHighlight = () => {
       if (highlightSelection.frenchIds.length === 0 && highlightSelection.englishIds.length === 0) return;
 
@@ -68,7 +113,7 @@ function App() {
   return (
     <div className="flex h-screen w-screen overflow-hidden font-sans">
         {/* Left Panel: Input & Controls */}
-        <div className="w-80 bg-white border-r flex flex-col shadow-lg z-20">
+        <div className="w-80 bg-white border-r flex flex-col shadow-lg z-20 no-print">
             <div className="p-4 border-b bg-gray-50">
                 <h1 className="font-bold text-xl flex items-center gap-2">
                     <Languages className="text-blue-600" />
@@ -77,6 +122,29 @@ function App() {
             </div>
 
             <div className="flex-1 overflow-auto p-4 space-y-6">
+
+                {/* Project Actions */}
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                        onClick={handleSaveProject}
+                        className="flex items-center justify-center gap-2 p-2 bg-gray-100 rounded hover:bg-gray-200 text-xs font-medium text-gray-700"
+                    >
+                        <Save size={14} /> Save
+                    </button>
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center justify-center gap-2 p-2 bg-gray-100 rounded hover:bg-gray-200 text-xs font-medium text-gray-700"
+                    >
+                        <FolderOpen size={14} /> Load
+                    </button>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleLoadProject}
+                        accept=".json"
+                        className="hidden"
+                    />
+                </div>
 
                 {/* Mode Switcher */}
                 <div className="space-y-2">
@@ -193,7 +261,9 @@ function App() {
         <Workspace />
 
         {/* Right: Properties */}
-        <PropertiesPanel />
+        <div className="no-print">
+            <PropertiesPanel />
+        </div>
     </div>
   );
 }

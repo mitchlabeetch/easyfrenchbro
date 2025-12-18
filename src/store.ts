@@ -18,6 +18,8 @@ interface StoreState extends ProjectState {
   removeSidebarCard: (id: string) => void;
   updateTheme: (theme: Partial<ThemeConfig>) => void;
 
+  setProjectState: (state: ProjectState) => void;
+
   parseAndSetText: (rawFrench: string, rawEnglish: string) => void;
 
   // Selection State
@@ -117,6 +119,14 @@ export const useStore = create<StoreState>((set) => ({
   updateTheme: (theme) => set((state) => ({
     theme: { ...state.theme, ...theme }
   })),
+
+  setProjectState: (projectState) => set({
+      ...projectState,
+      selectionMode: 'none',
+      selectedElementId: null,
+      selectedElementType: null,
+      highlightSelection: { frenchIds: [], englishIds: [], lineId: null }
+  }),
 
   parseAndSetText: (rawFrench, rawEnglish) => {
     const frLines = rawFrench.split('\n');

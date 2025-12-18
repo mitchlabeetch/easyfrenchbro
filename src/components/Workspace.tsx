@@ -23,9 +23,24 @@ export const Workspace: React.FC = () => {
     >
       <div
         ref={workspaceRef}
-        className="max-w-5xl mx-auto bg-white shadow-xl min-h-[11in] p-12 relative"
+        className="max-w-5xl mx-auto bg-white shadow-xl min-h-[11in] p-12 relative overflow-visible"
         style={{ fontSize: theme.fontSize, lineHeight: theme.lineHeight }}
       >
+        {/* A4 Page Guide Overlay */}
+        <div
+            className="absolute inset-0 pointer-events-none z-0"
+            style={{
+                background: `repeating-linear-gradient(
+                    to bottom,
+                    transparent,
+                    transparent calc(1123px - 1px),
+                    red calc(1123px - 1px),
+                    red 1123px
+                )`,
+                opacity: 0.2
+            }}
+        />
+
         <Xwrapper>
             <ArrowLayer />
 
@@ -36,7 +51,7 @@ export const Workspace: React.FC = () => {
                         <div className="text-gray-300 font-mono text-sm text-right pr-2 pt-1 select-none">
                             <span className="group-hover:hidden">{line.lineNumber}</span>
                             <button
-                                className="hidden group-hover:inline-block text-blue-500 hover:text-blue-700"
+                                className="hidden group-hover:inline-block text-blue-500 hover:text-blue-700 no-print"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     useStore.getState().addSidebarCard({
