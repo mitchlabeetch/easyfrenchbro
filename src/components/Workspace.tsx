@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store';
 import { WordGroupRenderer } from './WordGroupRenderer';
 import { CustomArrowLayer } from './CustomArrowLayer';
-import { PlusCircle, Pen, Settings2, Trash2, X, Volume2 } from 'lucide-react';
+import { PlusCircle, Pen, Settings2, Trash2, X, Volume2, Link, MessageSquare } from 'lucide-react';
 import { clsx } from 'clsx';
 import { RichTextEditor } from './RichTextEditor';
 import { ArrowTemplateMenu } from './ArrowTemplateMenu';
@@ -437,7 +437,17 @@ export const Workspace: React.FC = () => {
                                                     }}>
                                                     <PlusCircle size={14} /></button>
                                                 <button className="text-indigo-500 hover:text-indigo-700 p-1 hover:bg-indigo-50 rounded" title="Speak"
-                                                    onClick={(e) => { e.stopPropagation(); const u = new SpeechSynthesisUtterance(line.frenchText); u.lang = 'fr-FR'; window.speechSynthesis.speak(u); }}>
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      if (line.audioUrl) {
+                                                        const audio = new Audio(line.audioUrl);
+                                                        audio.play().catch(console.error);
+                                                      } else {
+                                                        const u = new SpeechSynthesisUtterance(line.frenchText);
+                                                        u.lang = 'fr-FR';
+                                                        window.speechSynthesis.speak(u);
+                                                      }
+                                                    }}>
                                                     <Volume2 size={14} /></button>
                                                 <button className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded relative group/manage" title="Manage">
                                                     <Settings2 size={14} />
@@ -450,6 +460,18 @@ export const Workspace: React.FC = () => {
                                                                 <button key={type} className={clsx("w-full text-left text-[10px] p-1 rounded hover:bg-gray-50 capitalize", line.sectionType === type && "text-blue-600 font-bold bg-blue-50")}
                                                                     onClick={(e) => { e.stopPropagation(); updateLineProperty(line.id, { sectionType: type }); }}>{type}</button>
                                                             ))}
+                                                        </div>
+                                                        <div className="border-t my-1 pt-1">
+                                                          <button className="w-full text-left text-[10px] p-1 rounded hover:bg-gray-50 flex gap-2 items-center"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              const url = prompt("Enter Audio URL (mp3/wav):", line.audioUrl || '');
+                                                              if (url !== null) {
+                                                                updateLineProperty(line.id, { audioUrl: url });
+                                                              }
+                                                            }}>
+                                                            <Link size={10} /> {line.audioUrl ? 'Edit Audio' : 'Add Audio'}
+                                                          </button>
                                                         </div>
                                                     </div></button>
                                             </div>
@@ -507,12 +529,27 @@ export const Workspace: React.FC = () => {
                                             {sidebars.filter(s => s.anchoredLineId === line.id).map(card => {
                                                 const color = getColorForAnecdote(card.type as AnecdoteType);
                                                 return (
-                                                    <div key={card.id} className="p-2 rounded text-sm mb-2 shadow-sm group/card relative" style={{ backgroundColor: card.color || color || '#fef3c7' }}>
-                                                        <div className="absolute -right-2 -top-2 hidden group-hover/card:flex bg-white shadow rounded-full border no-print">
-                                                            <button onClick={() => removeSidebarCard(card.id)} className="p-1 hover:bg-red-50 text-red-500"><X size={12} /></button>
+                                                    <div key={card.id} className="rounded-lg text-sm mb-2 shadow-sm group/card relative overflow-hidden transition-all hover:shadow-md"
+                                                         style={{ backgroundColor: card.color || color || '#fef3c7', borderLeft: `4px solid ${card.color || color || '#fef3c7'}80` }}>
+                                                        <div className="flex justify-between items-center p-2 border-b border-black/5 bg-black/5">
+                                                            <div className="flex items-center gap-1 text-[10px] uppercase font-bold text-gray-600/80">
+                                                                <MessageSquare size={10} />
+                                                                {card.type}
+                                                            </div>
+                                                            <button onClick={() => removeSidebarCard(card.id)}
+                                                                    className="p-1 hover:bg-red-500 hover:text-white rounded text-gray-500 transition-colors opacity-0 group-hover/card:opacity-100 no-print">
+                                                                <X size={12} />
+                                                            </button>
                                                         </div>
-                                                        <textarea className="w-full bg-transparent border-none resize-none focus:ring-0 text-gray-800 p-0 text-xs"
-                                                            value={card.content} onChange={(e) => updateSidebarCard(card.id, { content: e.target.value })} rows={3} />
+                                                        <div className="p-2">
+                                                            <textarea
+                                                                className="w-full bg-transparent border-none resize-none focus:ring-0 text-gray-800 p-0 text-xs font-medium leading-relaxed"
+                                                                value={card.content}
+                                                                onChange={(e) => updateSidebarCard(card.id, { content: e.target.value })}
+                                                                rows={3}
+                                                                placeholder="Add note..."
+                                                            />
+                                                        </div>
                                                     </div>
                                                 );
                                             })}

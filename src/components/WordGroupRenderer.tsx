@@ -146,12 +146,14 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
 
   // Render tokens with grouping
   let wordIndex = 0;
+  let charIndex = 0; // Track character position for search highlighting
   const renderedTokens: React.ReactNode[] = [];
 
   tokens.forEach((token, tokenIdx) => {
     const isWord = /^[a-zA-Z0-9À-ÿ'']+$/.test(token);
 
     if (!isWord) {
+      charIndex += token.length;
       // Logic for contiguous highlighting of spaces/punctuation
       const prevWordId = `${lineId}-${language}-${wordIndex - 1}`;
       const nextWordId = `${lineId}-${language}-${wordIndex}`;
@@ -184,11 +186,17 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
     const isTarget = group && isArrowTarget(group.id); // Highlight targets too
     const currentWordIndex = wordIndex;
     
+    // Check if this word is part of the search result
+    const tokenStart = charIndex;
+    const tokenEnd = charIndex + token.length;
+    charIndex += token.length;
+
+    const isSearchMatch = theme.searchHighlight?.lineId === lineId &&
+                          theme.searchHighlight?.language === language &&
+                          // Check for overlap
+                          Math.max(tokenStart, theme.searchHighlight.startIndex) < Math.min(tokenEnd, theme.searchHighlight.endIndex);
+
     // Get style for this word
-    // We match by INDEX in the styles array for now, assuming styles are stored by relative index
-    // OR we match by constructed ID.
-    // The RichTextEditor saves IDs as "0", "1", "2". We should map validly.
-    // Let's assume styles use indices as strings.
     const style = styles.find(s => s.wordId === String(currentWordIndex));
 
     wordIndex++;
@@ -219,14 +227,9 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
           borderBottom: group ? `3px solid ${group.color}` : undefined,
           paddingBottom: group ? '2px' : undefined,
           // Legacy highlights
-          backgroundColor: inHighlight ? undefined : (
-            theme.searchHighlight?.lineId === lineId && 
-            theme.searchHighlight?.language === language && 
-            currentWordIndex >= 0 // Simplified: if any word in the line is part of search, maybe highlight? 
-            // Better: use the indices. But WordGroup renderer splits by words.
-            // Let's just highlight the word if it contains the search term index-wise.
-            ? '#fbbf24' // Yellow-400 for search match
-            : useStore.getState().highlights.find(h => 
+          backgroundColor: isSearchMatch ? '#fbbf24' : (
+            inHighlight ? undefined :
+            useStore.getState().highlights.find(h =>
               h.associatedLineId === lineId && 
               (language === 'french' ? h.frenchWordIds.includes(wordId) : h.englishWordIds.includes(wordId))
             )?.colorCode

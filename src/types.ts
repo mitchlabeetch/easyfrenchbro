@@ -35,6 +35,7 @@ export interface LineData {
   frenchStyles?: TextStyle[];
   englishStyles?: TextStyle[];
   sectionType?: SectionType;
+  audioUrl?: string;
 }
 
 export interface PageData {
@@ -188,6 +189,8 @@ export interface UISettings {
   showEnglish: boolean;
   focusMode: boolean;
   darkMode: boolean;
+  historyLimit?: number;
+  readMode?: boolean;
 }
 
 // Template Data Types
