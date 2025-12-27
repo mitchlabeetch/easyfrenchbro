@@ -46,7 +46,8 @@ export const Workspace: React.FC = () => {
         viewMode,
         setViewMode,
         insertContent,
-        setCurrentPageIndex
+        setCurrentPageIndex,
+        metadata
     } = useStore();
 
     const [editorState, setEditorState] = useState<{
@@ -411,6 +412,46 @@ export const Workspace: React.FC = () => {
             backgroundColor: theme.pageBackground || '#ffffff',
         };
     };
+
+    // Helper function to process header/footer template placeholders
+    const processTemplate = (template: string, pageNumber: number): string => {
+        return template
+            .replace(/\{\{pageNumber\}\}/g, String(pageNumber))
+            .replace(/\{\{bookTitle\}\}/g, metadata.title || '')
+            .replace(/\{\{author\}\}/g, metadata.author || '')
+            .replace(/\{\{year\}\}/g, String(metadata.year || new Date().getFullYear()))
+            .replace(/\{\{totalPages\}\}/g, String(pages.length));
+    };
+
+    // Helper function to render header or footer
+    const renderHeaderFooter = (type: 'header' | 'footer', pageNumber: number, isFirstPage: boolean) => {
+        const template = type === 'header' ? theme.pageTemplate?.header : theme.pageTemplate?.footer;
+        if (!template) return null;
+        
+        // Check if should show on first page
+        if (isFirstPage && template.showOnFirstPage === false) return null;
+        
+        const hasContent = template.left || template.center || template.right;
+        if (!hasContent) return null;
+
+        const positionClass = type === 'header' 
+            ? 'absolute top-2 left-0 right-0 px-4' 
+            : 'absolute bottom-2 left-0 right-0 px-4';
+        
+        return (
+            <div 
+                className={`${positionClass} flex justify-between items-center text-xs text-gray-500 no-print`}
+                style={{ 
+                    fontFamily: template.font || 'inherit',
+                    fontSize: template.fontSize || '9pt'
+                }}
+            >
+                <span>{processTemplate(template.left || '', pageNumber)}</span>
+                <span>{processTemplate(template.center || '', pageNumber)}</span>
+                <span>{processTemplate(template.right || '', pageNumber)}</span>
+            </div>
+        );
+    };
     
     // Helper function to render page content (lines, sidebars, etc.)
     const renderPageContent = (page: typeof pages[0], _pageIdx: number) => (
@@ -432,9 +473,24 @@ export const Workspace: React.FC = () => {
                                 selectedLineIndex === lineIndex && "ring-2 ring-indigo-400 bg-indigo-50"
                             )}
                             onClick={() => setSelectedLineIndex(lineIndex)}
-                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) setDragOverIndex(lineIndex); }}
+                            onDragOver={(e) => { e.preventDefault(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) setDragOverIndex(lineIndex); }}
                             onDragLeave={() => setDragOverIndex(null)}
-                            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) { reorderLines(page.id, draggedLineIndex, lineIndex); } setDraggedLineIndex(null); setDragOverIndex(null); }}
+                            onDrop={(e) => { 
+                                // Check if this is a snippet drop - if so, let it bubble to workspace handler
+                                const snippetData = e.dataTransfer.getData('application/x-snippet');
+                                const imageData = e.dataTransfer.getData('application/x-image');
+                                if (snippetData || imageData) {
+                                    // Don't stop propagation - let workspace handle it
+                                    return;
+                                }
+                                e.preventDefault(); 
+                                e.stopPropagation(); 
+                                if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) { 
+                                    reorderLines(page.id, draggedLineIndex, lineIndex); 
+                                } 
+                                setDraggedLineIndex(null); 
+                                setDragOverIndex(null); 
+                            }}
                         >
                             {/* Drag handle for polymorphic content */}
                             <div 
@@ -489,9 +545,24 @@ export const Workspace: React.FC = () => {
                     )}
                     style={{ gridTemplateColumns: getGridTemplate() }}
                     onClick={() => setSelectedLineIndex(lineIndex)}
-                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) setDragOverIndex(lineIndex); }}
+                    onDragOver={(e) => { e.preventDefault(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) setDragOverIndex(lineIndex); }}
                     onDragLeave={() => setDragOverIndex(null)}
-                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) { reorderLines(page.id, draggedLineIndex, lineIndex); } setDraggedLineIndex(null); setDragOverIndex(null); }}
+                    onDrop={(e) => { 
+                        // Check if this is a snippet drop - if so, let it bubble to workspace handler
+                        const snippetData = e.dataTransfer.getData('application/x-snippet');
+                        const imageData = e.dataTransfer.getData('application/x-image');
+                        if (snippetData || imageData) {
+                            // Don't stop propagation - let workspace handle it
+                            return;
+                        }
+                        e.preventDefault(); 
+                        e.stopPropagation(); 
+                        if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) { 
+                            reorderLines(page.id, draggedLineIndex, lineIndex); 
+                        } 
+                        setDraggedLineIndex(null); 
+                        setDragOverIndex(null); 
+                    }}
                 >
                     {/* Line Number Column - Acts as drag handle */}
                     <div 
@@ -876,7 +947,11 @@ export const Workspace: React.FC = () => {
                                     <div className="absolute -top-8 left-0 right-0 text-center text-gray-400 text-xs no-print flex justify-between px-2">
                                         <span>Page {(currentPageIndex || 0) + 1} of {pages.length}</span>
                                     </div>
+                                    {/* Page Header */}
+                                    {renderHeaderFooter('header', (currentPageIndex || 0) + 1, currentPageIndex === 0)}
                                     {renderPageContent(currentPage, currentPageIndex || 0)}
+                                    {/* Page Footer */}
+                                    {renderHeaderFooter('footer', (currentPageIndex || 0) + 1, currentPageIndex === 0)}
                                 </div>
                             )}
                             
@@ -896,7 +971,9 @@ export const Workspace: React.FC = () => {
                                                 <div className="absolute -top-6 left-0 right-0 text-center text-gray-400 text-xs no-print">
                                                     Page {leftPageIndex + 1}
                                                 </div>
+                                                {renderHeaderFooter('header', leftPageIndex + 1, leftPageIndex === 0)}
                                                 {renderPageContent(leftPage, leftPageIndex)}
+                                                {renderHeaderFooter('footer', leftPageIndex + 1, leftPageIndex === 0)}
                                             </div>
                                         );
                                     })()}
@@ -915,7 +992,9 @@ export const Workspace: React.FC = () => {
                                                 <div className="absolute -top-6 left-0 right-0 text-center text-gray-400 text-xs no-print">
                                                     Page {rightPageIndex + 1}
                                                 </div>
+                                                {renderHeaderFooter('header', rightPageIndex + 1, rightPageIndex === 0)}
                                                 {renderPageContent(rightPage, rightPageIndex)}
+                                                {renderHeaderFooter('footer', rightPageIndex + 1, rightPageIndex === 0)}
                                             </div>
                                         );
                                     })()}
@@ -933,7 +1012,9 @@ export const Workspace: React.FC = () => {
                                             <div className="absolute -top-6 left-0 right-0 text-center text-gray-400 text-xs no-print flex justify-between px-2">
                                                 <span>Page {pageIndex + 1}</span>
                                             </div>
+                                            {renderHeaderFooter('header', pageIndex + 1, pageIndex === 0)}
                                             {renderPageContent(page, pageIndex)}
+                                            {renderHeaderFooter('footer', pageIndex + 1, pageIndex === 0)}
                                         </div>
                                     ))}
                                 </div>
