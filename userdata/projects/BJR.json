@@ -7,44 +7,70 @@
   },
   "pages": [
     {
-      "id": "26380ad2-de13-46b6-841f-f2ceab498b8c",
+      "id": "039b65cc-2de5-48d4-8491-e82635246a13",
       "lines": [
         {
-          "id": "b7c7a508-c3de-428d-9808-d8abfef0b9ca",
+          "id": "c834bac6-6eaa-4dd4-baa4-48b8921a10fa",
           "lineNumber": 1,
           "frenchText": "Le chat mange la souris.",
           "englishText": "The cat eats the mouse."
         },
         {
-          "id": "410b55f8-1e27-43b3-a408-dd04777fc0e7",
+          "id": "bc5be931-fa40-4129-bf73-de910ba51377",
           "lineNumber": 2,
           "frenchText": "Il fait beau aujourd'hui.",
           "englishText": "It is nice today."
+        },
+        {
+          "id": "4edf438e-531e-4944-b9f3-5b89c34c19ac",
+          "frenchText": "",
+          "englishText": "",
+          "lineNumber": 3,
+          "type": "callout",
+          "contentData": {
+            "id": "4edf438e-531e-4944-b9f3-5b89c34c19ac",
+            "type": "callout",
+            "calloutType": "culture",
+            "title": "CULTURE",
+            "content": "Cultural context...",
+            "icon": "🏛️",
+            "color": "#7c3aed"
+          }
+        },
+        {
+          "id": "f2ac2d3f-0707-40c0-99a3-08acecb40995",
+          "frenchText": "",
+          "englishText": "",
+          "lineNumber": 4,
+          "type": "image",
+          "contentData": {
+            "id": "f2ac2d3f-0707-40c0-99a3-08acecb40995",
+            "type": "image",
+            "src": "http://localhost:3001/assets/1766869206077-Bildschirmfoto_2025-12-27_um_01.15.10.png",
+            "alt": "1766869206077-Bildschirmfoto_2025-12-27_um_01.15.10.png",
+            "alignment": "center",
+            "width": "80%"
+          }
+        },
+        {
+          "id": "329719ad-f042-437d-8903-448c6cb5682e",
+          "frenchText": "",
+          "englishText": "",
+          "lineNumber": 5,
+          "type": "image",
+          "contentData": {
+            "id": "329719ad-f042-437d-8903-448c6cb5682e",
+            "type": "image",
+            "src": "http://localhost:3001/assets/1766869206077-Bildschirmfoto_2025-12-27_um_01.15.10.png",
+            "alt": "1766869206077-Bildschirmfoto_2025-12-27_um_01.15.10.png",
+            "alignment": "center",
+            "width": "80%"
+          }
         }
-      ],
-      "splitRatio": 0.7044055286456947
+      ]
     }
   ],
-  "highlights": [
-    {
-      "associatedLineId": "b7c7a508-c3de-428d-9808-d8abfef0b9ca",
-      "frenchWordIds": [
-        "b7c7a508-c3de-428d-9808-d8abfef0b9ca-french-4"
-      ],
-      "englishWordIds": [],
-      "colorCode": "#93c5fd",
-      "id": "7a79326c-5a77-424d-8724-ce1ef713d72f"
-    },
-    {
-      "associatedLineId": "410b55f8-1e27-43b3-a408-dd04777fc0e7",
-      "frenchWordIds": [],
-      "englishWordIds": [
-        "410b55f8-1e27-43b3-a408-dd04777fc0e7-english-2"
-      ],
-      "colorCode": "#93c5fd",
-      "id": "0ebe5b9b-30bb-42ec-955f-5ff0ee6eb1fc"
-    }
-  ],
+  "highlights": [],
   "wordGroups": [],
   "arrows": [],
   "sidebars": [],

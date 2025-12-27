@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
 import { WordGroupRenderer } from './WordGroupRenderer';
 import { CustomArrowLayer } from './CustomArrowLayer';
+import { ContentBlockRenderer } from './ContentBlockRenderer';
 import { PlusCircle, Pen, Settings2, Trash2, X, Volume2, Link } from 'lucide-react';
 import { clsx } from 'clsx';
 import { RichTextEditor } from './RichTextEditor';
@@ -385,7 +386,71 @@ export const Workspace: React.FC = () => {
     // Helper function to render page content (lines, sidebars, etc.)
     const renderPageContent = (page: typeof pages[0], _pageIdx: number) => (
         <div className="space-y-6 relative z-0">
-            {page.lines.map((line, lineIndex) => (
+            {page.lines.map((line, lineIndex) => {
+                // Check if this line has polymorphic contentData (non-text type)
+                const contentData = (line as { contentData?: PageContent }).contentData;
+                const isPolymorphicContent = contentData && contentData.type && contentData.type !== 'text';
+                
+                // Render polymorphic content (divider, table, callout, image)
+                if (isPolymorphicContent) {
+                    return (
+                        <div 
+                            key={line.id}
+                            className={clsx(
+                                "relative group transition-all",
+                                dragOverIndex === lineIndex && "ring-2 ring-blue-400 bg-blue-50",
+                                draggedLineIndex === lineIndex && "opacity-50 scale-[0.98]",
+                                selectedLineIndex === lineIndex && "ring-2 ring-indigo-400 bg-indigo-50"
+                            )}
+                            onClick={() => setSelectedLineIndex(lineIndex)}
+                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) setDragOverIndex(lineIndex); }}
+                            onDragLeave={() => setDragOverIndex(null)}
+                            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) { reorderLines(page.id, draggedLineIndex, lineIndex); } setDraggedLineIndex(null); setDragOverIndex(null); }}
+                        >
+                            {/* Drag handle for polymorphic content */}
+                            <div 
+                                className="absolute -left-8 top-0 text-gray-300 font-mono text-sm cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+                                draggable
+                                onDragStart={(e) => { 
+                                    e.stopPropagation();
+                                    setDraggedLineIndex(lineIndex); 
+                                    e.dataTransfer.setData('text/plain', String(lineIndex));
+                                    e.dataTransfer.effectAllowed = 'move';
+                                }}
+                                onDragEnd={() => { setDraggedLineIndex(null); setDragOverIndex(null); }}
+                                title="Drag to reorder"
+                            >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+                                    <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                                    <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+                                </svg>
+                            </div>
+                            
+                            <ContentBlockRenderer
+                                content={contentData}
+                                showFrench={uiSettings.showFrench}
+                                showEnglish={uiSettings.showEnglish}
+                                splitRatio={splitRatio}
+                                editable={true}
+                                onUpdate={(updates) => {
+                                    // Update contentData for the line
+                                    updatePage(page.id, {
+                                        lines: page.lines.map(l => 
+                                            l.id === line.id 
+                                                ? { ...l, contentData: { ...contentData, ...updates } }
+                                                : l
+                                        )
+                                    });
+                                }}
+                                onDelete={() => removeLine(page.id, line.id)}
+                            />
+                        </div>
+                    );
+                }
+                
+                // Standard text line rendering
+                return (
                 <div key={line.id} 
                     className={clsx(
                         "grid gap-4 group relative transition-all",
@@ -564,7 +629,7 @@ export const Workspace: React.FC = () => {
                         })}
                     </div>
                 </div>
-            ))}
+            );})}
         </div>
     );
     
