@@ -45,12 +45,30 @@ export async function capturePageAsPng(
     });
   }
   
-  // Temporarily add clone to body for rendering (hidden)
-  clone.style.position = 'absolute';
-  clone.style.left = '-9999px';
+  // Create a container that is on-screen but visually hidden
+  // This helps html2canvas properly compute styles
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '0';
+  container.style.top = '0';
+  container.style.width = 'auto';
+  container.style.height = 'auto';
+  container.style.zIndex = '-9999';
+  container.style.opacity = '0';
+  container.style.pointerEvents = 'none';
+  container.style.overflow = 'visible';
+  
+  // Reset clone styles to ensure proper rendering
+  clone.style.position = 'relative';
+  clone.style.left = '0';
   clone.style.top = '0';
-  clone.style.zIndex = '-1';
-  document.body.appendChild(clone);
+  clone.style.margin = '0';
+  clone.style.transform = 'none';
+  clone.style.boxShadow = 'none';
+  clone.setAttribute('data-page-export', 'true');
+  
+  container.appendChild(clone);
+  document.body.appendChild(container);
   
   try {
     const canvas = await html2canvas(clone, {
@@ -59,16 +77,30 @@ export async function capturePageAsPng(
       useCORS: true,
       allowTaint: true,
       logging: false,
-      // Remove shadows for cleaner export
-      onclone: (clonedDoc: Document) => {
-        const clonedElement = clonedDoc.body.querySelector('[data-page-export]') || clonedDoc.body.firstElementChild;
-        if (clonedElement && clonedElement instanceof HTMLElement) {
-          clonedElement.style.boxShadow = 'none';
-          
-          // If transparent, ensure backgrounds are properly handled
-          if (opts.transparentBackground) {
-            clonedElement.style.backgroundColor = 'transparent';
+      // Process the cloned document for better rendering
+      onclone: (_clonedDoc: Document, element: HTMLElement) => {
+        // Ensure all text is visible and properly styled
+        const allText = element.querySelectorAll('span, div, p, h1, h2, h3, h4, h5, h6, input, textarea');
+        allText.forEach((el) => {
+          if (el instanceof HTMLElement) {
+            // Force text to be visible
+            el.style.overflow = 'visible';
+            el.style.textOverflow = 'clip';
+            el.style.whiteSpace = 'normal';
           }
+        });
+        
+        // Handle callout boxes specifically
+        const callouts = element.querySelectorAll('.callout-box, .callout-header');
+        callouts.forEach((el) => {
+          if (el instanceof HTMLElement) {
+            el.style.overflow = 'visible';
+          }
+        });
+        
+        // If transparent, ensure backgrounds are properly handled
+        if (opts.transparentBackground) {
+          element.style.backgroundColor = 'transparent';
         }
       }
     });
@@ -87,7 +119,7 @@ export async function capturePageAsPng(
       );
     });
   } finally {
-    document.body.removeChild(clone);
+    document.body.removeChild(container);
   }
 }
 
