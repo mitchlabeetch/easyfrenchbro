@@ -7,6 +7,7 @@ import { clsx } from 'clsx';
 import { RichTextEditor } from './RichTextEditor';
 import { ArrowTemplateMenu } from './ArrowTemplateMenu';
 import { ArrowEditMenu } from './ArrowEditMenu';
+import { DraggablePopup } from './DraggablePopup';
 import { TextStyle, AnecdoteType, PageContent } from '../types';
 import { ViewModeSelector, SpreadNavigator } from './PageSpreadView';
 import { createContentFromSnippetId } from './SnippetLibrary';
@@ -230,7 +231,7 @@ export const Workspace: React.FC = () => {
             const relativeX = moveEvent.clientX - rect.left - fixedLeft;
             
             let newRatio = relativeX / flexibleWidth;
-            newRatio = Math.max(0.1, Math.min(0.9, newRatio));
+            newRatio = Math.max(0.15, Math.min(0.85, newRatio));
             updatePage(currentPage.id, { splitRatio: newRatio });
         };
 
@@ -442,20 +443,20 @@ export const Workspace: React.FC = () => {
                                   }
                                 }}>
                                 <Volume2 size={14} /></button>
-                            <button className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded relative group/manage" title="Manage">
+                            <button className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded relative group/manage no-print" title="Manage">
                                 <Settings2 size={14} />
-                                <div className="absolute left-full top-0 ml-2 bg-white shadow-xl border rounded p-2 w-32 hidden group-focus-within/manage:block z-50">
-                                    <button className="w-full text-left text-xs p-1 hover:bg-red-50 text-red-600 rounded flex gap-2 items-center"
+                                <div className="absolute left-full top-0 ml-2 bg-white dark:bg-gray-800 shadow-xl border dark:border-gray-700 rounded p-2 w-32 hidden group-focus-within/manage:block z-[100]">
+                                    <button className="w-full text-left text-xs p-1 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded flex gap-2 items-center"
                                         onClick={(e) => { e.stopPropagation(); if (confirm('Delete line?')) removeLine(page.id, line.id); }}>
                                         <Trash2 size={12} /> Delete</button>
-                                    <div className="border-t my-1 pt-1">
+                                    <div className="border-t dark:border-gray-700 my-1 pt-1">
                                         {(['paragraph', 'title', 'heading', 'note', 'list'] as const).map(type => (
-                                            <button key={type} className={clsx("w-full text-left text-[10px] p-1 rounded hover:bg-gray-50 capitalize", line.sectionType === type && "text-blue-600 font-bold bg-blue-50")}
+                                            <button key={type} className={clsx("w-full text-left text-[10px] p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700 capitalize dark:text-gray-300", line.sectionType === type && "text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30")}
                                                 onClick={(e) => { e.stopPropagation(); updateLineProperty(line.id, { sectionType: type }); }}>{type}</button>
                                         ))}
                                     </div>
-                                    <div className="border-t my-1 pt-1">
-                                      <button className="w-full text-left text-[10px] p-1 rounded hover:bg-gray-50 flex gap-2 items-center"
+                                    <div className="border-t dark:border-gray-700 my-1 pt-1">
+                                      <button className="w-full text-left text-[10px] p-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700 flex gap-2 items-center dark:text-gray-300"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           const url = prompt("Enter Audio URL (mp3/wav):", line.audioUrl || '');
@@ -501,8 +502,8 @@ export const Workspace: React.FC = () => {
 
                             {uiSettings.showFrench && uiSettings.showEnglish && (
                                 <div onMouseDown={handleSplitMouseDown}
-                                    className="absolute top-0 bottom-0 w-4 -ml-2 cursor-col-resize hover:bg-blue-400/20 z-20 transition-colors flex justify-center"
-                                    style={{ left: `calc(3rem + (100% - 15rem) * ${splitRatio})` }}>
+                                    className="absolute top-0 bottom-0 w-4 -ml-2 cursor-col-resize hover:bg-blue-400/20 z-20 transition-colors flex justify-center no-print"
+                                    style={{ left: `calc(3rem + (100% - 3rem - 12rem) * ${splitRatio})` }}>
                                         {/* Visual indicator line */}
                                         <div className="w-px h-full bg-gray-200 group-hover:bg-blue-400"></div>
                                 </div>
@@ -648,16 +649,22 @@ export const Workspace: React.FC = () => {
             
             {/* Color Picker for Legacy Highlight Mode */}
             {selectionMode === 'highlight' && (
-                <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-white p-2 rounded-full shadow-lg z-50 flex gap-2 border">
-                     {theme.highlightColors.map(color => (
-                         <button
-                            key={color}
-                            className={clsx("w-6 h-6 rounded-full border border-gray-200 hover:scale-110 transition-transform", useStore.getState().selectedColor === color && "ring-2 ring-blue-500")}
-                            style={{ backgroundColor: color }}
-                            onClick={() => useStore.setState({ selectedColor: color })}
-                         />
-                     ))}
-                </div>
+                <DraggablePopup
+                    initialPosition={{ x: window.innerWidth / 2 - 100, y: 80 }}
+                    title="Pick Color"
+                    onClose={() => useStore.setState({ selectionMode: 'none' })}
+                >
+                    <div className="flex gap-2 p-1">
+                        {theme.highlightColors.map(color => (
+                            <button
+                                key={color}
+                                className={clsx("w-6 h-6 rounded-full border border-gray-200 dark:border-gray-600 hover:scale-110 transition-transform", useStore.getState().selectedColor === color && "ring-2 ring-blue-500")}
+                                style={{ backgroundColor: color }}
+                                onClick={() => useStore.setState({ selectedColor: color })}
+                            />
+                        ))}
+                    </div>
+                </DraggablePopup>
             )}
 
             <div className="workspace-inner relative shadow-2xl origin-top transition-transform duration-200"
@@ -707,49 +714,54 @@ export const Workspace: React.FC = () => {
                 />
                 {/* Anecdote TYPE selection menu for Word Groups (existing) */}
                 {anecdoteMenu && (
-                    <div className="fixed z-50 bg-white shadow-xl border rounded-lg p-2 grid grid-cols-2 gap-2 w-64" 
-                         style={{ top: anecdoteMenu.y - 180, left: anecdoteMenu.x }}>
-                        <h4 className="col-span-2 text-xs font-bold text-gray-500 mb-1 border-b pb-1">Select Word Type</h4>
-                        {([
-                            { type: 'grammar', label: 'Grammar' },
-                            { type: 'spoken', label: 'Spoken' },
-                            { type: 'history', label: 'History' },
-                            { type: 'falseFriend', label: 'False Friend' },
-                            { type: 'pronunciation', label: 'Pronunciation' },
-                            { type: 'vocab', label: 'Vocab' },
-                        ] as const).map(({ type, label }) => (
-                            <button key={type} className="text-left text-xs p-2 hover:bg-blue-50 text-blue-700 rounded border border-transparent hover:border-blue-200"
-                                onClick={() => {
-                                    updateWordGroup(anecdoteMenu.wordGroupId, { color: getColorForAnecdote(type), anecdoteType: type });
-                                    setAnecdoteMenu(null);
-                                }}>{label}</button>
-                        ))}
-                    </div>
+                    <DraggablePopup
+                        initialPosition={{ x: anecdoteMenu.x, y: anecdoteMenu.y - 180 }}
+                        title="Select Word Type"
+                        onClose={() => setAnecdoteMenu(null)}
+                    >
+                        <div className="grid grid-cols-2 gap-2 w-60">
+                            {([
+                                { type: 'grammar', label: 'Grammar' },
+                                { type: 'spoken', label: 'Spoken' },
+                                { type: 'history', label: 'History' },
+                                { type: 'falseFriend', label: 'False Friend' },
+                                { type: 'pronunciation', label: 'Pronunciation' },
+                                { type: 'vocab', label: 'Vocab' },
+                            ] as const).map(({ type, label }) => (
+                                <button key={type} className="text-left text-xs p-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-transparent hover:border-blue-200 dark:hover:border-blue-700"
+                                    onClick={() => {
+                                        updateWordGroup(anecdoteMenu.wordGroupId, { color: getColorForAnecdote(type), anecdoteType: type });
+                                        setAnecdoteMenu(null);
+                                    }}>{label}</button>
+                            ))}
+                        </div>
+                    </DraggablePopup>
                 )}
                 
                 {/* NEW: Sidebar Card Creation Menu */}
                 {sidebarMenu && (
-                    <div className="fixed z-50 bg-white shadow-xl border rounded-lg p-2 grid grid-cols-2 gap-2 w-64" 
-                         style={{ top: sidebarMenu.y, left: sidebarMenu.x }}>
-                         <div className="col-span-2 flex justify-between items-center border-b pb-1 mb-1">
-                            <h4 className="text-xs font-bold text-gray-500">Add Anecdote</h4>
-                            <button onClick={() => setSidebarMenu(null)}><X size={12} /></button>
-                         </div>
-                        {([
-                            { type: 'grammar', label: 'Grammar' },
-                            { type: 'spoken', label: 'Spoken' },
-                            { type: 'history', label: 'History' },
-                            { type: 'falseFriend', label: 'False Friend' },
-                            { type: 'pronunciation', label: 'Pronunciation' },
-                            { type: 'vocab', label: 'Vocab' },
-                        ] as const).map(({ type, label }) => (
-                            <button key={type} className="text-left text-xs p-2 hover:bg-blue-50 text-blue-700 rounded border border-transparent hover:border-blue-200"
-                                onClick={() => {
-                                    addSidebarCard({ type: type, content: 'New Note', anchoredLineId: sidebarMenu.lineId });
-                                    setSidebarMenu(null);
-                                }}>{label}</button>
-                        ))}
-                    </div>
+                    <DraggablePopup
+                        initialPosition={{ x: sidebarMenu.x, y: sidebarMenu.y }}
+                        title="Add Anecdote"
+                        onClose={() => setSidebarMenu(null)}
+                    >
+                        <div className="grid grid-cols-2 gap-2 w-60">
+                            {([
+                                { type: 'grammar', label: 'Grammar' },
+                                { type: 'spoken', label: 'Spoken' },
+                                { type: 'history', label: 'History' },
+                                { type: 'falseFriend', label: 'False Friend' },
+                                { type: 'pronunciation', label: 'Pronunciation' },
+                                { type: 'vocab', label: 'Vocab' },
+                            ] as const).map(({ type, label }) => (
+                                <button key={type} className="text-left text-xs p-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded border border-transparent hover:border-blue-200 dark:hover:border-blue-700"
+                                    onClick={() => {
+                                        addSidebarCard({ type: type, content: 'New Note', anchoredLineId: sidebarMenu.lineId });
+                                        setSidebarMenu(null);
+                                    }}>{label}</button>
+                            ))}
+                        </div>
+                    </DraggablePopup>
                 )}
 
                 {editorState.isOpen && (

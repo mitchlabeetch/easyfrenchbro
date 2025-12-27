@@ -127,6 +127,9 @@ export const CalloutBox: React.FC<CalloutBoxProps> = ({
 // CALLOUT PICKER (for inserting new callouts)
 // ─────────────────────────────────────────────────────────────────
 
+import { GripHorizontal } from 'lucide-react';
+import { useDraggable } from '../hooks/useDraggable';
+
 interface CalloutPickerProps {
   onSelect: (type: CalloutType) => void;
   onClose: () => void;
@@ -143,22 +146,33 @@ export const CalloutPicker: React.FC<CalloutPickerProps> = ({
     'spoken', 'vocab', 'history', 'background', 'note'
   ];
 
+  const { position: dragPos, dragHandleProps } = useDraggable({
+    initialPosition: position || { x: window.innerWidth / 2 - 144, y: window.innerHeight / 2 - 120 }
+  });
+
   return (
     <div 
-      className="fixed z-50 bg-white shadow-xl border rounded-lg p-3 w-72 animate-fade-in"
-      style={position ? { top: position.y, left: position.x } : {}}
+      className="fixed z-[100] bg-white dark:bg-gray-800 shadow-xl border dark:border-gray-700 rounded-lg w-72 animate-fade-in no-print"
+      style={position ? { top: dragPos.y, left: dragPos.x } : {}}
     >
-      <div className="flex justify-between items-center border-b pb-2 mb-3">
-        <h4 className="text-xs font-bold text-gray-500">Insert Callout Box</h4>
+      {/* Drag Handle */}
+      <div 
+        className="flex justify-between items-center px-3 py-2 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-lg select-none"
+        {...dragHandleProps}
+      >
+        <div className="flex items-center gap-2 text-xs font-bold text-gray-500 dark:text-gray-400">
+          <GripHorizontal size={12} className="text-gray-400" />
+          Insert Callout Box
+        </div>
         <button 
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600"
+          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-sm font-bold"
         >
           ×
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="p-3 grid grid-cols-2 gap-2">
         {calloutTypes.map((type) => {
           const style = CALLOUT_STYLES[type];
           return (
@@ -169,10 +183,10 @@ export const CalloutPicker: React.FC<CalloutPickerProps> = ({
                 onClose();
               }}
               className="flex items-center gap-2 p-2 rounded border hover:border-blue-300 
-                         hover:bg-blue-50 transition-colors text-left"
+                         hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors text-left"
             >
               <span className="text-lg">{style.icon}</span>
-              <span className="text-xs font-medium text-gray-700">{style.label}</span>
+              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{style.label}</span>
             </button>
           );
         })}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Bold, Italic, Underline, Strikethrough, X, Save } from 'lucide-react';
+import { Bold, Italic, Underline, Strikethrough, X, Save, GripHorizontal } from 'lucide-react';
 import { TextStyle } from '../types';
+import { useDraggable } from '../hooks/useDraggable';
 
 interface RichTextEditorProps {
   initialText: string;
@@ -22,6 +23,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   
   // Selection state
   const [selectedWordIndices, setSelectedWordIndices] = useState<number[]>([]);
+
+  // Draggable
+  const { position: dragPos, dragHandleProps } = useDraggable({ initialPosition: position });
 
   const handleWordClick = (index: number) => {
      if (selectedWordIndices.includes(index)) {
@@ -62,15 +66,24 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   return (
     <div 
-      className="fixed z-50 bg-white shadow-xl border rounded-lg p-4 w-96 font-sans"
-      style={{ top: position.y, left: position.x }}
+      className="fixed z-[100] bg-white dark:bg-gray-800 shadow-xl border dark:border-gray-700 rounded-lg w-96 font-sans no-print"
+      style={{ top: dragPos.y, left: dragPos.x }}
     >
-      <div className="flex justify-between items-center mb-2 border-b pb-2">
-        <h3 className="text-sm font-bold text-gray-700">Edit Text & Style</h3>
-        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+      {/* Draggable Header */}
+      <div 
+        className="flex justify-between items-center px-4 py-2 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-t-lg select-none"
+        {...dragHandleProps}
+      >
+        <div className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-200">
+          <GripHorizontal size={14} className="text-gray-400" />
+          Edit Text & Style
+        </div>
+        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
            <X size={16} />
         </button>
       </div>
+
+      <div className="p-4">
 
       <div className="flex gap-2 mb-3">
          <button 
@@ -171,6 +184,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         >
           <Save size={16} /> Save & Sync
         </button>
+      </div>
       </div>
     </div>
   );

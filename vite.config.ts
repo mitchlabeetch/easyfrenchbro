@@ -11,5 +11,20 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
+  },
+  build: {
+    // Suppress chunk size warning (we're doing proper code splitting)
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split vendor libraries into separate chunks
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-zustand': ['zustand'],
+          'vendor-export': ['html2canvas', 'jszip', 'papaparse'],
+          'vendor-ui': ['lucide-react', 'clsx'],
+        }
+      }
+    }
   }
 })

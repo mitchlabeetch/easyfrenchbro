@@ -608,6 +608,85 @@
   color: #1f2937 !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   LEFT SIDEBAR PANEL - Dark Mode Theming
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Left sidebar background */
+.dark [class*="w-80"][class*="border-r"][class*="bg-white"] {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+/* Section labels in left panel (uppercase labels) */
+.dark .text-gray-500.uppercase,
+.dark label.text-gray-500 {
+  color: #9ca3af !important;
+}
+
+/* Regular text in sidebar */
+.dark [class*="w-80"] .text-gray-700,
+.dark [class*="w-80"] .text-gray-600 {
+  color: #d1d5db !important;
+}
+
+/* Buttons in left panel with light backgrounds */
+.dark [class*="w-80"] .bg-gray-50,
+.dark [class*="w-80"] .bg-gray-100 {
+  background-color: #374151 !important;
+}
+
+.dark [class*="w-80"] .border-gray-200 {
+  border-color: #4b5563 !important;
+}
+
+/* Page navigator in sidebar */
+.dark [class*="w-80"] .bg-gray-50.border.rounded {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+}
+
+.dark [class*="w-80"] .font-mono {
+  color: #e5e7eb !important;
+}
+
+/* Palette display grid */
+.dark [class*="w-80"] .bg-gray-50.rounded.border {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RIGHT PROPERTIES PANEL - Dark Mode Theming
+   ═══════════════════════════════════════════════════════════════ */
+
+.dark [class*="w-96"][class*="border-l"] {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+.dark [class*="w-96"] .bg-white {
+  background-color: #1f2937 !important;
+}
+
+.dark [class*="w-96"] .bg-gray-50 {
+  background-color: #111827 !important;
+}
+
+.dark [class*="w-96"] .text-gray-500,
+.dark [class*="w-96"] .text-gray-600,
+.dark [class*="w-96"] .text-gray-700 {
+  color: #9ca3af !important;
+}
+
+.dark [class*="w-96"] label {
+  color: #d1d5db !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GENERIC UI DARK MODE RULES
+   ═══════════════════════════════════════════════════════════════ */
+
 /* UI elements (not page content) get dark mode treatment */
 .dark .bg-white:not(.shadow-lg):not(.workspace-inner *) { 
   background-color: #1f2937 !important; 
@@ -641,48 +720,130 @@
   border-color: #3b82f6 !important;
 }
 
+/* Placeholder text in dark mode */
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #6b7280 !important;
+}
+
 .dark ::-webkit-scrollbar { width: 8px; height: 8px; }
 .dark ::-webkit-scrollbar-track { background-color: #1f2937; }
 .dark ::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 4px; }
 .dark ::-webkit-scrollbar-thumb:hover { background-color: #6b7280; }
 
 /* ─────────────────────────────────────────────────────────────────
+   Z-INDEX HIERARCHY - Ensure correct layering
+   ───────────────────────────────────────────────────────────────── */
+
+/* Level 1: Page content (base) */
+.arrow-layer {
+  z-index: 10 !important;
+}
+
+/* Level 2: Selection overlays */
+[class*="ring-2"] {
+  z-index: 15;
+}
+
+/* Level 3: Toolbars (floating) */
+.fixed[class*="top-4"],
+.fixed[class*="top-20"] {
+  z-index: 40;
+}
+
+/* Level 4: Context menus and popups (ALWAYS on top) */
+[class*="z-50"].fixed,
+[class*="z-50"].absolute {
+  z-index: 100 !important;
+}
+
+/* Level 5: Modal overlays (highest) */
+[class*="inset-0"][class*="bg-black"] {
+  z-index: 200 !important;
+}
+
+/* Level 6: Modal content (on top of overlay) */
+[class*="inset-0"] > [class*="shadow-2xl"] {
+  z-index: 210 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────
    PRINT STYLES
    ───────────────────────────────────────────────────────────────── */
 @media print {
-  /* Hide non-printable UI elements */
+  /* Hide ALL non-printable UI elements comprehensively */
   .no-print,
   .sidebar,
   .toolbar,
   .controls,
-  [data-no-print="true"] { 
+  [data-no-print="true"],
+  /* Left panel / sidebar - match by class combination */
+  [class*="w-80"][class*="border-r"],
+  /* Right panel (Properties) */
+  [class*="w-96"][class*="border-l"],
+  /* Fixed toolbars and menus */
+  [class*="fixed"][class*="top-4"],
+  [class*="fixed"][class*="top-20"],
+  [class*="fixed"][class*="z-50"],
+  [class*="fixed"][class*="z-[100]"],
+  [class*="fixed"][class*="z-[200]"],
+  /* View mode selectors */
+  [class*="ViewModeSelector"],
+  /* Modal overlays */
+  [class*="inset-0"],
+  /* Modals and popups - black overlay */
+  [class*="bg-black/50"],
+  [class*="bg-black\\/50"],
+  /* Selection indicators */
+  [class*="ring-2"][class*="ring-blue-400"],
+  [class*="ring-2"][class*="ring-indigo-400"],
+  /* Color pickers */
+  [class*="rounded-full"][class*="shadow-lg"][class*="z-50"] { 
     display: none !important; 
+    visibility: hidden !important;
   }
   
   /* Reset layout for print */
   body,
   html,
-  #root,
-  #workspace-container { 
+  #root { 
     background: white !important; 
     margin: 0 !important; 
     padding: 0 !important; 
     overflow: visible !important; 
     height: auto !important; 
     width: auto !important;
-    color: black !important; 
+    color: black !important;
+  }
+  
+  /* Main workspace container */
+  #workspace-container {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  
+  /* Workspace inner wrapper */
+  .workspace-inner {
+    transform: none !important;
+    margin: 0 !important;
   }
   
   /* Page setup */
-  .page {
+  .page,
+  .bg-white.shadow-lg {
     box-shadow: none !important;
     border: none !important;
     margin: 0 !important;
     page-break-after: always;
     page-break-inside: avoid;
+    background: white !important;
   }
   
-  .page:last-child {
+  .page:last-child,
+  .bg-white.shadow-lg:last-child {
     page-break-after: auto;
   }
 
@@ -702,9 +863,81 @@
     margin-right: 25mm;
   }
   
+  /* CRITICAL: Preserve annotation/highlight colors */
+  .bg-yellow-100, .bg-yellow-200, .bg-yellow-50 { 
+    background-color: #fef3c7 !important; 
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .bg-blue-100, .bg-blue-200, .bg-blue-50 { 
+    background-color: #dbeafe !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .bg-green-100, .bg-green-200, .bg-green-50 { 
+    background-color: #dcfce7 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .bg-red-100, .bg-red-200, .bg-red-50 { 
+    background-color: #fee2e2 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .bg-purple-100, .bg-purple-200, .bg-purple-50 { 
+    background-color: #f3e8ff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .bg-pink-100, .bg-pink-200, .bg-pink-50 { 
+    background-color: #fce7f3 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .bg-indigo-100, .bg-indigo-200, .bg-indigo-50 { 
+    background-color: #e0e7ff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .bg-teal-100, .bg-teal-200, .bg-teal-50 { 
+    background-color: #ccfbf1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .bg-orange-100, .bg-orange-200, .bg-orange-50 { 
+    background-color: #ffedd5 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Preserve inline background colors (word groups, highlights) */
+  [style*="background"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Sidebar cards (anecdotes) - preserve colors */
+  .rounded-lg.text-sm.mb-2.shadow-sm,
+  .rounded.text-sm.mb-2.shadow-sm {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
   /* Arrows visible during print */
   .arrow-layer {
     overflow: visible !important;
+    display: block !important;
+  }
+  
+  .arrow-layer svg {
+    overflow: visible !important;
+  }
+  
+  .arrow-layer path,
+  .arrow-layer line {
+    stroke: currentColor !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   
   /* Hide scrollbars */
@@ -712,20 +945,137 @@
     display: none !important; 
   }
   
-  /* Force light mode for printing */
-  .dark,
-  .dark * {
+  /* Force light mode for printing but PRESERVE annotation colors */
+  .dark .workspace-inner,
+  .dark .bg-white.shadow-lg,
+  .dark .page {
     background: white !important;
     color: black !important;
-    border-color: #e5e7eb !important;
+  }
+  
+  /* ═══════════════════════════════════════════════════════════════
+     CRITICAL: Preserve grid layout during print
+     ═══════════════════════════════════════════════════════════════ */
+  
+  /* The main content grid - MUST preserve grid layout */
+  .grid.gap-4.group {
+    display: grid !important;
+    page-break-inside: avoid;
+    /* Override the 4-column layout to 2 columns (hide line numbers and sidebar) */
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  /* Hide line number column (first child in grid) */
+  .grid.gap-4.group > .text-gray-300.font-mono,
+  .grid.gap-4.group > div:first-child {
+    display: none !important;
+  }
+
+  
+  /* For interlinear mode - adjust grid */
+  [style*="3rem 1fr 12rem"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Ensure the text columns fill the space properly */
+  .grid.gap-4.group > div[class*="relative"] {
+    width: 100% !important;
+  }
+  
+  /* Hide the sidebar anecdote cards column */
+  .grid.gap-4.group > div:nth-child(4),
+  .grid.gap-4.group > div:nth-last-child(1):not([class*="p-1"]) {
+    display: none !important;
+  }
+  
+  /* Show text content columns */
+  .grid.gap-4.group > div[class*="p-1"] {
+    display: block !important;
   }
   
   /* Prevent page breaks inside critical elements */
   .callout-box,
   .book-table,
   .book-figure,
-  .bilingual-block {
+  .bilingual-block,
+  .grid.gap-4.group {
     page-break-inside: avoid;
+  }
+  
+  /* ═══════════════════════════════════════════════════════════════
+     Hide interactive/UI elements during print
+     ═══════════════════════════════════════════════════════════════ */
+  
+  /* Hide line management buttons */
+  .cursor-grab,
+  .cursor-grabbing,
+  [title="Drag to reorder"],
+  [title="Add Anecdote"],
+  [title="Speak"],
+  [title="Manage"],
+  [draggable="true"] {
+    display: none !important;
+  }
+  
+  /* Hide selection rings */
+  .ring-2,
+  [class*="ring-2"] {
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  
+  /* Hide hover actions that appear on content */
+  .group-hover\:flex,
+  .group-hover\:block,
+  [class*="group-hover"],
+  .opacity-0 {
+    display: none !important;
+  }
+  
+  /* Hide the line numbers column completely */
+  .text-gray-300.font-mono.text-sm.text-right {
+    display: none !important;
+  }
+  
+  /* Ensure proper text rendering */
+  .font-serif {
+    font-family: 'Libre Baskerville', 'Crimson Pro', Georgia, serif !important;
+  }
+  
+  .font-sans {
+    font-family: 'Inter', system-ui, sans-serif !important;
+  }
+  
+  /* ═══════════════════════════════════════════════════════════════
+     Workspace container print settings
+     ═══════════════════════════════════════════════════════════════ */
+  
+  /* The workspace inner should not have transform during print */
+  .workspace-inner {
+    transform: none !important;
+    transform-origin: top left !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+  }
+  
+  /* Space-y-6 container for page content */
+  .space-y-6 {
+    display: block !important;
+  }
+  
+  /* Ensure workspace container doesn't apply flex constraints */
+  #workspace-container,
+  [id*="workspace"] {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  /* Remove the absolute positioning on page info */
+  .absolute.-top-8 {
+    display: none !important;
   }
 }
 

@@ -7,129 +7,47 @@
   },
   "pages": [
     {
-      "id": "ca1ee490-5be4-4762-a588-9bf1cdbf1e3f",
+      "id": "26380ad2-de13-46b6-841f-f2ceab498b8c",
       "lines": [
         {
-          "id": "66924a16-d332-4eb8-bb22-f1bf5e1e1399",
+          "id": "b7c7a508-c3de-428d-9808-d8abfef0b9ca",
           "lineNumber": 1,
           "frenchText": "Le chat mange la souris.",
           "englishText": "The cat eats the mouse."
         },
         {
-          "id": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
+          "id": "410b55f8-1e27-43b3-a408-dd04777fc0e7",
           "lineNumber": 2,
           "frenchText": "Il fait beau aujourd'hui.",
-          "englishText": "It is nice today.",
-          "englishStyles": [
-            {
-              "wordId": "2",
-              "bold": true
-            }
-          ]
-        },
-        {
-          "id": "e84e808f-67ff-4eb8-8ca0-7853efad653c",
-          "frenchText": "",
-          "englishText": "",
-          "lineNumber": 3,
-          "type": "callout",
-          "contentData": {
-            "id": "e84e808f-67ff-4eb8-8ca0-7853efad653c",
-            "type": "callout",
-            "calloutType": "background",
-            "title": "A LITTLE BACKGROUND",
-            "content": "Historical or contextual background...",
-            "icon": "📚",
-            "color": "#854d0e"
-          }
-        },
-        {
-          "id": "78f7b4dd-768f-4fa9-8bde-d166dbb0a71e",
-          "frenchText": "",
-          "englishText": "",
-          "lineNumber": 4,
-          "type": "divider",
-          "contentData": {
-            "id": "78f7b4dd-768f-4fa9-8bde-d166dbb0a71e",
-            "type": "divider",
-            "dividerStyle": "fleuron",
-            "spacing": "10mm"
-          }
-        },
-        {
-          "id": "b26ad402-e27e-4b96-b11a-4f536277cb8d",
-          "frenchText": "",
-          "englishText": "",
-          "lineNumber": 5,
-          "type": "divider",
-          "contentData": {
-            "id": "b26ad402-e27e-4b96-b11a-4f536277cb8d",
-            "type": "divider",
-            "dividerStyle": "line",
-            "spacing": "10mm"
-          }
+          "englishText": "It is nice today."
         }
-      ]
+      ],
+      "splitRatio": 0.7044055286456947
     }
   ],
   "highlights": [
     {
-      "associatedLineId": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
+      "associatedLineId": "b7c7a508-c3de-428d-9808-d8abfef0b9ca",
       "frenchWordIds": [
-        "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9-french-0"
+        "b7c7a508-c3de-428d-9808-d8abfef0b9ca-french-4"
       ],
       "englishWordIds": [],
-      "colorCode": "#dcfce7",
-      "id": "53f8284e-7931-4aee-8b7b-af2829e8c312"
-    }
-  ],
-  "wordGroups": [
-    {
-      "wordIds": [
-        "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9-french-1"
-      ],
-      "lineId": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
-      "language": "french",
-      "type": "verb",
-      "color": "#fca5a5",
-      "id": "1258a315-b7a2-4da7-a4c3-80f69c4a1595"
+      "colorCode": "#93c5fd",
+      "id": "7a79326c-5a77-424d-8724-ce1ef713d72f"
     },
     {
-      "wordIds": [
-        "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9-french-0"
+      "associatedLineId": "410b55f8-1e27-43b3-a408-dd04777fc0e7",
+      "frenchWordIds": [],
+      "englishWordIds": [
+        "410b55f8-1e27-43b3-a408-dd04777fc0e7-english-2"
       ],
-      "lineId": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
-      "language": "french",
-      "type": "subject",
-      "color": "#93c5fd",
-      "id": "865cbd7b-18ec-4fb3-ab6b-f40a8ff385d4"
+      "colorCode": "#93c5fd",
+      "id": "0ebe5b9b-30bb-42ec-955f-5ff0ee6eb1fc"
     }
   ],
-  "arrows": [
-    {
-      "sourceGroupIds": [
-        "865cbd7b-18ec-4fb3-ab6b-f40a8ff385d4"
-      ],
-      "targetGroupIds": [
-        "1258a315-b7a2-4da7-a4c3-80f69c4a1595"
-      ],
-      "color": "#6b7280",
-      "style": "solid",
-      "strokeWidth": 1,
-      "headStyle": "arrow",
-      "curvature": 2,
-      "id": "d5818e4f-a1f0-4bf8-8878-590f4876d22d"
-    }
-  ],
-  "sidebars": [
-    {
-      "type": "spoken",
-      "content": "New Note",
-      "anchoredLineId": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
-      "id": "3c233464-d4ca-4fcd-9d55-fee4b80085e8",
-      "color": "#dbeafe"
-    }
-  ],
+  "wordGroups": [],
+  "arrows": [],
+  "sidebars": [],
   "theme": {
     "frenchFontFamily": "serif",
     "englishFontFamily": "sans-serif",

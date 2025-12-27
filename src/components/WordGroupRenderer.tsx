@@ -25,11 +25,7 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
     selectedElementId,
     setSelectedElement,
     theme,
-    highlightSelection,
-    highlights,
-    addHighlight,
-    removeHighlight,
-    updateHighlight
+    highlightSelection
   } = useStore();
 
   // Split text into words and non-words (punctuation/spaces)
@@ -86,39 +82,35 @@ export const WordGroupRenderer: React.FC<WordGroupRendererProps> = ({ text, lang
         }
       }
     } else if (selectionMode === 'highlight') {
-      // Toggle highlight for this word
-      const existing = highlights.find(h => 
-          h.associatedLineId === lineId && 
-          (language === 'french' ? h.frenchWordIds.includes(wordId) : h.englishWordIds.includes(wordId))
-       );
-       
-       if (existing) {
-          // Keep it simple: remove the highlight entry entirely if it's a single word match? 
-          // Or smarter: remove just this word.
-          const isFrench = language === 'french';
-          const ids = isFrench ? existing.frenchWordIds : existing.englishWordIds;
-          const newIds = ids.filter(id => id !== wordId);
-          
-          // If nothing left in this highlight (for both langs), remove it
-          const otherLangIds = isFrench ? existing.englishWordIds : existing.frenchWordIds;
-          
-          if (newIds.length === 0 && otherLangIds.length === 0) {
-              removeHighlight(existing.id);
-          } else {
-              updateHighlight(existing.id, {
-                  frenchWordIds: isFrench ? newIds : existing.frenchWordIds,
-                  englishWordIds: !isFrench ? newIds : existing.englishWordIds
-              });
+      // Toggle word in highlight selection (accumulate until Apply)
+      const addToHighlightSelection = useStore.getState().addToHighlightSelection;
+      const currentHighlightSelection = useStore.getState().highlightSelection;
+      
+      // Check if word is already in selection
+      const isAlreadySelected = language === 'french' 
+        ? currentHighlightSelection.frenchIds.includes(wordId)
+        : currentHighlightSelection.englishIds.includes(wordId);
+      
+      if (isAlreadySelected) {
+        // Remove from selection - update the store directly
+        const newFrenchIds = language === 'french' 
+          ? currentHighlightSelection.frenchIds.filter(id => id !== wordId)
+          : currentHighlightSelection.frenchIds;
+        const newEnglishIds = language === 'english'
+          ? currentHighlightSelection.englishIds.filter(id => id !== wordId)
+          : currentHighlightSelection.englishIds;
+        
+        useStore.setState({
+          highlightSelection: {
+            frenchIds: newFrenchIds,
+            englishIds: newEnglishIds,
+            lineId: lineId
           }
-       } else {
-          // Create new highlight with selected color
-          addHighlight({
-              associatedLineId: lineId,
-              frenchWordIds: language === 'french' ? [wordId] : [],
-              englishWordIds: language === 'english' ? [wordId] : [],
-              colorCode: useStore.getState().selectedColor
-          });
-       }
+        });
+      } else {
+        // Add to selection
+        addToHighlightSelection(wordId, language, lineId);
+      }
     } else if (selectionMode === 'none') {
       const group = wordIdToGroup.get(wordId);
       if (group) {

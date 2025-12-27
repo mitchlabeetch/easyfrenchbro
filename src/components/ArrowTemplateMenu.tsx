@@ -1,5 +1,7 @@
 import React from 'react';
+import { GripHorizontal } from 'lucide-react';
 import { ArrowStyle, ArrowHeadStyle } from '../types';
+import { useDraggable } from '../hooks/useDraggable';
 
 interface ArrowTemplateMenuProps {
   isOpen?: boolean;
@@ -17,6 +19,10 @@ export const ArrowTemplateMenu: React.FC<ArrowTemplateMenuProps> = ({
   position 
 }) => {
   const handleClose = onCancel || onClose;
+  const { position: dragPos, dragHandleProps } = useDraggable({
+    initialPosition: position || { x: window.innerWidth / 2 - 96, y: window.innerHeight / 2 - 100 }
+  });
+
   if (!isOpen || !position) return null;
 
   const templates = [
@@ -28,27 +34,38 @@ export const ArrowTemplateMenu: React.FC<ArrowTemplateMenuProps> = ({
 
   return (
     <div 
-      className="fixed z-50 bg-white rounded-lg shadow-xl border p-2 flex flex-col gap-1 w-48"
-      style={{ left: position.x, top: position.y }}
+      className="fixed z-[100] bg-white dark:bg-gray-800 rounded-lg shadow-xl border dark:border-gray-700 w-48 no-print"
+      style={{ left: dragPos.x, top: dragPos.y }}
     >
-      <div className="text-xs font-semibold text-gray-500 mb-1 px-2">Select Style</div>
-      {templates.map((t, i) => (
-        <button
-          key={i}
-          className="text-left px-3 py-2 text-sm hover:bg-gray-100 rounded flex items-center justify-between group"
-          onClick={() => onSelect?.({ style: t.style, headStyle: t.head, color: t.color })}
-        >
-          <span>{t.label}</span>
-          <div className="w-8 h-px bg-current" style={{ borderTopStyle: t.style, color: t.color }} />
-        </button>
-      ))}
-      <hr className="my-1" />
-      <button 
-        className="text-xs text-center text-gray-400 hover:text-gray-600 py-1"
-        onClick={handleClose}
+      {/* Drag Handle */}
+      <div 
+        className="flex items-center justify-between px-3 py-2 border-b dark:border-gray-700 select-none bg-gray-50 dark:bg-gray-900 rounded-t-lg"
+        {...dragHandleProps}
       >
-        Cancel
-      </button>
+        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
+          <GripHorizontal size={12} className="text-gray-400" />
+          Select Style
+        </div>
+        <button 
+          onClick={handleClose}
+          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-sm font-bold"
+        >
+          ×
+        </button>
+      </div>
+      
+      <div className="p-2 flex flex-col gap-1">
+        {templates.map((t, i) => (
+          <button
+            key={i}
+            className="text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-200 rounded flex items-center justify-between group"
+            onClick={() => onSelect?.({ style: t.style, headStyle: t.head, color: t.color })}
+          >
+            <span>{t.label}</span>
+            <div className="w-8 h-px bg-current" style={{ borderTopStyle: t.style, color: t.color }} />
+          </button>
+        ))}
+      </div>
     </div>
   );
 };

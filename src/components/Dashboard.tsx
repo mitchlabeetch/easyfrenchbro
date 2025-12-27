@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { FolderOpen, FilePlus, Loader, Clock, Trash2, Edit2, Check, X, Copy } from 'lucide-react';
+import { FolderOpen, FilePlus, Loader, Clock, Trash2, Edit2, Check, X, Copy, FileSpreadsheet } from 'lucide-react';
+import { CSVCreator } from './CSVCreator';
 
 interface DashboardProps {
   onOpenProject: (name: string) => void;
@@ -13,6 +14,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreatePro
   const [loading, setLoading] = useState(true);
   const [newProjectName, setNewProjectName] = useState('');
   const [deletingProject, setDeletingProject] = useState<string | null>(null);
+  const [showCSVCreator, setShowCSVCreator] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -119,14 +121,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreatePro
     }
   };
 
+  // Show CSV Creator as a full-screen modal
+  if (showCSVCreator) {
+    return <CSVCreator onClose={() => setShowCSVCreator(false)} />;
+  }
+
   return (
     <div className="flex h-screen w-screen bg-gray-50 flex-col items-center justify-center font-sans">
-      <div className="w-full max-w-4xl p-8 space-y-8">
+      <div className="w-full max-w-5xl p-8 space-y-8">
         
         {/* Header */}
         <div className="text-center space-y-2">
             <h1 className="text-4xl font-bold text-gray-800 tracking-tight">EasyFrenchBro</h1>
-            <p className="text-gray-500">Select a project to continue or create a new one.</p>
+            <p className="text-gray-500">Select a project to continue, create a new one, or use our tools.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -263,6 +270,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreatePro
                     )}
                 </div>
             </div>
+        </div>
+
+        {/* Tools Section */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-700">Tools</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* CSV Creator Card */}
+            <button
+              onClick={() => setShowCSVCreator(true)}
+              className="group bg-gradient-to-br from-teal-500 to-cyan-600 p-6 rounded-xl shadow-md hover:shadow-lg transition-all hover:scale-[1.02] text-left"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <FileSpreadsheet size={24} className="text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-white">CSV Creator</h3>
+              </div>
+              <p className="text-sm text-white/80">
+                Create bilingual CSV files for easy import. Add French-English sentence pairs with a user-friendly interface.
+              </p>
+              <div className="mt-4 text-xs text-white/60 group-hover:text-white/80 transition-colors">
+                Click to open →
+              </div>
+            </button>
+          </div>
         </div>
 
       </div>

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Trash2, X, MoveHorizontal } from 'lucide-react';
+import { Trash2, X, MoveHorizontal, GripHorizontal } from 'lucide-react';
 import { ArrowStyle, ArrowHeadStyle } from '../types';
+import { useDraggable } from '../hooks/useDraggable';
 
 interface ArrowEditMenuProps {
   arrowId: string;
@@ -38,22 +39,27 @@ export const ArrowEditMenu: React.FC<ArrowEditMenuProps> = ({
   onClose,
   position
 }) => {
-  const style = position 
-    ? { top: position.y, left: position.x }
-    : { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
+  const { position: dragPos, dragHandleProps } = useDraggable({
+    initialPosition: position || { x: window.innerWidth / 2 - 128, y: window.innerHeight / 2 - 100 }
+  });
 
   return (
     <div 
-      className="fixed z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-3 w-64 animate-in fade-in zoom-in-95 duration-200"
-      style={style}
+      className="fixed z-[100] bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-3 w-64 animate-in fade-in zoom-in-95 duration-200 no-print"
+      style={{ top: dragPos.y, left: dragPos.x }}
     >
-      <div className="flex justify-between items-center mb-3 border-b pb-2">
-        <h4 className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1">
-          <MoveHorizontal size={12} /> Edit Arrow
+      <div 
+        className="flex justify-between items-center mb-3 border-b dark:border-gray-700 pb-2 select-none"
+        {...dragHandleProps}
+      >
+        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase flex items-center gap-1">
+          <GripHorizontal size={12} className="text-gray-400" />
+          <MoveHorizontal size={12} />
+          Edit Arrow
         </h4>
         <button 
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100"
+          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
         >
           <X size={14} />
         </button>
