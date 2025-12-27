@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { FolderOpen, FilePlus, Loader, Clock, Trash2, Edit2, Check, X } from 'lucide-react';
+import { FolderOpen, FilePlus, Loader, Clock, Trash2, Edit2, Check, X, Copy } from 'lucide-react';
 
 interface DashboardProps {
   onOpenProject: (name: string) => void;
@@ -97,6 +97,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreatePro
       console.error('Error renaming project:', err);
     }
     setRenamingProject(null);
+  };
+
+  const handleDuplicate = async (name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const response = await fetch(`http://localhost:3001/projects/${encodeURIComponent(name)}`);
+      if (response.ok) {
+        const projectData = await response.json();
+        const newName = `${name} (Copy)`;
+
+        await fetch(`http://localhost:3001/projects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName, data: projectData })
+        });
+        await loadProjects();
+      }
+    } catch (err) {
+      console.error('Error duplicating project:', err);
+    }
   };
 
   return (
@@ -204,6 +224,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenProject, onCreatePro
                                         title="Rename project"
                                     >
                                         <Edit2 size={16} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleDuplicate(p.name, e)}
+                                        className="p-2 rounded-lg text-gray-300 hover:text-purple-500 hover:bg-purple-50 transition-all"
+                                        title="Duplicate project"
+                                    >
+                                        <Copy size={16} />
                                     </button>
                                     <button
                                         onClick={(e) => handleDelete(p.name, e)}

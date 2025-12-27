@@ -8,6 +8,8 @@ import {
   Download, 
   MoveDiagonal, 
   Languages, 
+  Wand2,
+  ClipboardPaste,
   Highlighter, 
   Check, 
   X, 
@@ -31,12 +33,17 @@ import {
   Sun,
   Keyboard,
   Undo2,
-  Redo2
+  Redo2,
+  BookOpen,
+  FileText
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { LinkingModal } from './components/LinkingModal';
 import { SearchBar } from './components/SearchBar';
 import { ExportModal } from './components/ExportModal';
+import { FontLoader } from './components/FontLoader';
+import { StatisticsModal } from './components/StatisticsModal';
+import { ImportModal } from './components/ImportModal';
 
 // Word type configuration with colors and labels
 const WORD_TYPES: { type: WordGroupType; label: string; shortLabel: string }[] = [
@@ -74,6 +81,7 @@ function App() {
     toggleFrench,
     toggleEnglish,
     toggleFocusMode,
+    toggleReadMode,
     toggleDarkMode,
     currentPageIndex,
     setCurrentPageIndex,
@@ -82,7 +90,8 @@ function App() {
     redo,
     saveToHistory,
     canUndo,
-    canRedo
+    canRedo,
+    autoAlign
   } = useStore();
 
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +106,8 @@ function App() {
   const [showLinkingModal, setShowLinkingModal] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Sync dark mode with body class
   useEffect(() => {
@@ -332,12 +343,13 @@ function App() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden font-sans bg-gray-100">
+      <FontLoader />
       {/* Left Panel: Input & Controls */}
       {!uiSettings.focusMode && (
         <div className="w-80 bg-white border-r flex flex-col shadow-lg z-20 no-print">
         <div className="p-4 border-b bg-gradient-to-r from-blue-600 to-indigo-600">
           <div className="flex items-center gap-2 mb-2">
-             <button onClick={() => setView('dashboard')} className="text-white hover:bg-white/20 p-1 rounded">
+             <button onClick={() => setView('dashboard')} className="text-white hover:bg-white/20 p-1 rounded" aria-label="Back to Dashboard">
                 <ArrowLeft size={20} />
              </button>
              <h1 className="font-bold text-xl flex items-center gap-2 text-white">
@@ -354,12 +366,20 @@ function App() {
           <div className="space-y-2">
             <label className="text-xs font-bold text-gray-500 uppercase">Data & Structure</label>
 
-            <button
-              onClick={() => csvInputRef.current?.click()}
-              className="w-full flex items-center justify-center gap-2 p-2 bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 text-xs font-medium"
-            >
-              <FileSpreadsheet size={14} /> Import CSV
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => csvInputRef.current?.click()}
+                className="flex-1 flex items-center justify-center gap-2 p-2 bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 text-xs font-medium"
+              >
+                <FileSpreadsheet size={14} /> CSV
+              </button>
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="flex-1 flex items-center justify-center gap-2 p-2 bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 text-xs font-medium"
+              >
+                <ClipboardPaste size={14} /> Text
+              </button>
+            </div>
             <input
               type="file"
               ref={csvInputRef}
@@ -430,6 +450,17 @@ function App() {
                 <RefreshCw size={14} /> Reflow
               </button>
             </div>
+
+            <button
+               onClick={() => {
+                 if(confirm("Auto-align will split text by sentences and reset all annotations. Continue?")) {
+                   autoAlign();
+                 }
+               }}
+               className="w-full flex items-center justify-center gap-2 p-2 bg-purple-50 text-purple-700 border border-purple-200 rounded hover:bg-purple-100 text-xs font-medium"
+            >
+               <Wand2 size={14} /> Auto-Align Sentences
+            </button>
             
             <button
                 // Simple save trigger - also save history
@@ -716,8 +747,16 @@ function App() {
                   <button
                     onClick={toggleFocusMode}
                     className="flex-1 flex items-center justify-center gap-2 p-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded hover:bg-indigo-100 text-xs font-medium"
+                    aria-label="Toggle Focus Mode"
                   >
                     <Maximize2 size={14} /> Focus
+                  </button>
+                  <button
+                    onClick={toggleReadMode}
+                    className="flex-1 flex items-center justify-center gap-2 p-2 bg-teal-50 text-teal-700 border border-teal-200 rounded hover:bg-teal-100 text-xs font-medium"
+                    aria-label="Toggle Read Mode"
+                  >
+                    <BookOpen size={14} /> Read
                   </button>
                   <button
                     onClick={toggleDarkMode}
@@ -725,6 +764,7 @@ function App() {
                       "flex-1 flex items-center justify-center gap-2 p-2 rounded border text-xs font-medium transition-colors",
                       uiSettings.darkMode ? "bg-gray-700 border-gray-600 text-yellow-400" : "bg-gray-50 border-gray-200 text-gray-600"
                     )}
+                    aria-label="Toggle Dark Mode"
                   >
                     {uiSettings.darkMode ? <Sun size={14} /> : <Moon size={14} />}
                     {uiSettings.darkMode ? 'Light' : 'Dark'}
@@ -735,6 +775,12 @@ function App() {
                   className="w-full flex items-center justify-center gap-2 p-2 bg-gray-50 text-gray-600 border border-gray-200 rounded hover:bg-gray-100 text-xs font-medium"
                 >
                   <Keyboard size={14} /> Shortcuts (?)
+                </button>
+                <button
+                  onClick={() => setShowStatsModal(true)}
+                  className="w-full flex items-center justify-center gap-2 p-2 bg-gray-50 text-gray-600 border border-gray-200 rounded hover:bg-gray-100 text-xs font-medium"
+                >
+                  <FileText size={14} /> Statistics
                 </button>
               </div>
             </div>
@@ -783,11 +829,12 @@ function App() {
 
       {/* Center: Workspace */}
       <div className="flex-1 relative flex flex-col overflow-hidden">
-        {uiSettings.focusMode && (
+        {(uiSettings.focusMode || uiSettings.readMode) && (
           <button 
-            onClick={toggleFocusMode}
+            onClick={uiSettings.readMode ? toggleReadMode : toggleFocusMode}
             className="absolute top-4 left-4 z-[100] p-2 bg-white/80 backdrop-blur shadow rounded-full hover:bg-white text-indigo-600 border border-indigo-100 no-print"
-            title="Exit Focus Mode"
+            title="Exit Focus/Read Mode"
+            aria-label="Exit Focus/Read Mode"
           >
             <Minimize2 size={24} />
           </button>
@@ -819,6 +866,18 @@ function App() {
       <ExportModal 
         isOpen={showExportModal} 
         onClose={() => setShowExportModal(false)} 
+      />
+
+      {/* Statistics Modal */}
+      <StatisticsModal
+        isOpen={showStatsModal}
+        onClose={() => setShowStatsModal(false)}
+      />
+
+      {/* Import Modal */}
+      <ImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
       />
 
       {/* Keyboard Shortcuts Help Panel */}
