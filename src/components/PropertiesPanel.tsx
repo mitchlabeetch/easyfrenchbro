@@ -99,7 +99,9 @@ export const PropertiesPanel: React.FC = () => {
     removeTemplate,
     toggleLayoutMode,
     zoomLevel,
-    setZoomLevel
+    setZoomLevel,
+    uiSettings,
+    updateUISettings
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'theme' | 'palette' | 'layout' | 'templates' | 'content'>('theme');
@@ -290,6 +292,21 @@ export const PropertiesPanel: React.FC = () => {
                       Reset
                     </button>
                 </div>
+              </div>
+
+              <div className="border-t pt-4">
+                  <h4 className="text-xs font-semibold text-gray-700 mb-2">Undo History Limit</h4>
+                   <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="10"
+                        max="200"
+                        step="10"
+                        className="flex-1 p-1 border rounded text-xs"
+                        value={uiSettings.historyLimit || 50}
+                        onChange={(e) => updateUISettings({ historyLimit: parseInt(e.target.value) })}
+                      />
+                  </div>
               </div>
 
               <div className="border-t pt-4">

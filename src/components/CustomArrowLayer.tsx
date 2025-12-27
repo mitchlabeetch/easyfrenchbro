@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useStore } from '../store';
+import { debounce } from '../utils/debounce';
 
 interface ArrowPath {
   id: string;
@@ -92,9 +93,11 @@ export const CustomArrowLayer: React.FC<CustomArrowLayerProps> = ({ onArrowClick
   useEffect(() => {
     calculatePaths();
     
-    // Also recalculate on scroll/resize
+    // Debounce the update
+    const debouncedCalculate = debounce(calculatePaths, 50);
+
     const handleUpdate = () => {
-      requestAnimationFrame(calculatePaths);
+      debouncedCalculate();
     };
 
     window.addEventListener('scroll', handleUpdate, true);

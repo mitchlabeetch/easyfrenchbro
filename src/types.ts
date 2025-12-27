@@ -168,6 +168,8 @@ export interface LineData {
   manualLineNumber?: number;
   skipNumbering?: boolean;
   restartNumberingAt?: number;
+  // Audio binding (from remote)
+  audioUrl?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -441,6 +443,9 @@ export interface UISettings {
   showLineNumbers?: boolean;
   showRulers?: boolean;
   showGutterGuides?: boolean;
+  // History & Read mode (from remote)
+  historyLimit?: number;
+  readMode?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────

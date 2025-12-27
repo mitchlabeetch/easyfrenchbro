@@ -109,7 +109,7 @@ interface HistorySnapshot {
   linkedPairs: LinkedPair[];
 }
 
-const MAX_HISTORY_SIZE = 50;
+const DEFAULT_HISTORY_LIMIT = 50;
 
 // Create a snapshot of the current state
 const createSnapshot = (state: StoreState): HistorySnapshot => ({
@@ -167,7 +167,7 @@ interface StoreState extends ProjectState {
   // Extended Palette actions
   updateTheme: (theme: Partial<ThemeConfig>) => void;
   toggleLayoutMode: () => void;
-  updateLineProperty: (lineId: string, updates: { sectionType?: SectionType }) => void;
+  updateLineProperty: (lineId: string, updates: { sectionType?: SectionType; audioUrl?: string }) => void;
   addPalette: (palette: Omit<ColorPalette, 'id'>) => void;
   updatePalette: (id: string, updates: Partial<ColorPalette>) => void;
   removePalette: (id: string) => void;
@@ -191,6 +191,7 @@ interface StoreState extends ProjectState {
   // UI Settings Actions
   updateUISettings: (settings: Partial<UISettings>) => void;
   toggleFocusMode: () => void;
+  toggleReadMode: () => void;
   toggleFrench: () => void;
   toggleEnglish: () => void;
   toggleDarkMode: () => void;
@@ -208,6 +209,7 @@ interface StoreState extends ProjectState {
 
   importFromCSV: (csvString: string) => void;
   reflowPages: (linesPerPage: number) => void;
+  autoAlign: () => void;
 
   parseAndSetText: (rawFrench: string, rawEnglish: string) => void;
 
@@ -368,9 +370,31 @@ export const useStore = create<StoreState>((set, get) => ({
 
   removePage: (id) => {
     get().saveToHistory();
-    return set((state) => ({
-      pages: state.pages.filter(p => p.id !== id)
-    }));
+    return set((state) => {
+      const page = state.pages.find(p => p.id === id);
+      if (!page) return {};
+
+      const lineIdsToRemove = page.lines.map(l => l.id);
+      const groupsToRemove = state.wordGroups.filter(g => lineIdsToRemove.includes(g.lineId));
+      const groupIdsToRemove = groupsToRemove.map(g => g.id);
+
+      const updatedArrows = state.arrows.filter(a =>
+         !a.sourceGroupIds.some(gid => groupIdsToRemove.includes(gid)) &&
+         !a.targetGroupIds.some(gid => groupIdsToRemove.includes(gid))
+      );
+
+      const updatedSidebars = state.sidebars.filter(s => !lineIdsToRemove.includes(s.anchoredLineId));
+      const updatedWordGroups = state.wordGroups.filter(g => !groupIdsToRemove.includes(g.id));
+      const updatedHighlights = state.highlights.filter(h => !lineIdsToRemove.includes(h.associatedLineId));
+
+      return {
+        pages: state.pages.filter(p => p.id !== id),
+        wordGroups: updatedWordGroups,
+        arrows: updatedArrows,
+        sidebars: updatedSidebars,
+        highlights: updatedHighlights
+      };
+    });
   },
 
   setCurrentPageIndex: (index) => set({ currentPageIndex: index }),
@@ -422,13 +446,14 @@ export const useStore = create<StoreState>((set, get) => ({
   })),
 
   removeWordGroup: (id) => {
-    // Save to history before mutation for undo support
     get().saveToHistory();
     set((state) => {
-      // Also remove any arrows that reference this group
-      const updatedArrows = state.arrows.filter(a => 
-        !a.sourceGroupIds.includes(id) && !a.targetGroupIds.includes(id)
-      );
+      const updatedArrows = state.arrows.map(a => ({
+        ...a,
+        sourceGroupIds: a.sourceGroupIds.filter(gid => gid !== id),
+        targetGroupIds: a.targetGroupIds.filter(gid => gid !== id)
+      })).filter(a => a.sourceGroupIds.length > 0 && a.targetGroupIds.length > 0);
+
       return {
         wordGroups: state.wordGroups.filter(g => g.id !== id),
         arrows: updatedArrows,
@@ -981,6 +1006,44 @@ export const useStore = create<StoreState>((set, get) => ({
     return { pages: newPages };
   }),
 
+  autoAlign: () => set((state) => {
+    const allLines = state.pages.flatMap(p => p.lines);
+    const fullFrench = allLines.map(l => l.frenchText).join(' ');
+    const fullEnglish = allLines.map(l => l.englishText).join(' ');
+
+    const splitSentences = (text: string) => {
+      return text.replace(/([.!?])\s+(?=[A-Z])/g, "$1|").split("|").map(s => s.trim()).filter(Boolean);
+    };
+
+    const frSentences = splitSentences(fullFrench);
+    const enSentences = splitSentences(fullEnglish);
+
+    const max = Math.max(frSentences.length, enSentences.length);
+    const newLines: LineData[] = [];
+
+    for(let i=0; i<max; i++) {
+       newLines.push({
+         id: generateId(),
+         lineNumber: i + 1,
+         frenchText: frSentences[i] || '',
+         englishText: enSentences[i] || ''
+       });
+    }
+
+    const linesPerPage = 25;
+    const pages: PageData[] = [];
+    for (let i = 0; i < newLines.length; i += linesPerPage) {
+      pages.push({
+        id: generateId(),
+        lines: newLines.slice(i, i + linesPerPage)
+      });
+    }
+    if (pages.length === 0) pages.push({ id: generateId(), lines: [] });
+
+    get().saveToHistory();
+    return { pages, highlights: [], wordGroups: [], arrows: [], sidebars: [] };
+  }),
+
   parseAndSetText: (rawFrench, rawEnglish) => {
     const frLines = rawFrench.split('\n');
     const enLines = rawEnglish.split('\n');
@@ -1204,6 +1267,10 @@ export const useStore = create<StoreState>((set, get) => ({
     uiSettings: { ...state.uiSettings, focusMode: !state.uiSettings.focusMode }
   })),
 
+  toggleReadMode: () => set((state) => ({
+    uiSettings: { ...state.uiSettings, readMode: !state.uiSettings.readMode, focusMode: !state.uiSettings.readMode }
+  })),
+
   toggleFrench: () => set((state) => ({
     uiSettings: { ...state.uiSettings, showFrench: !state.uiSettings.showFrench }
   })),
@@ -1220,6 +1287,7 @@ export const useStore = create<StoreState>((set, get) => ({
   saveToHistory: () => {
     set((state) => {
       const snapshot = createSnapshot(state);
+      const limit = state.uiSettings.historyLimit || DEFAULT_HISTORY_LIMIT;
       
       // If we're not at the end of history, truncate future states
       const newHistory = state.historyIndex >= 0 
@@ -1229,9 +1297,8 @@ export const useStore = create<StoreState>((set, get) => ({
       // Add new snapshot
       newHistory.push(snapshot);
       
-      // Limit history size
-      const wasHistoryFull = newHistory.length > MAX_HISTORY_SIZE;
-      if (wasHistoryFull) {
+      // Limit history size (configurable)
+      while (newHistory.length > limit) {
         newHistory.shift();
       }
       
@@ -1240,7 +1307,7 @@ export const useStore = create<StoreState>((set, get) => ({
         historyIndex: newHistory.length - 1,
         canUndo: newHistory.length > 0,
         canRedo: false,
-        isHistoryFull: newHistory.length >= MAX_HISTORY_SIZE
+        isHistoryFull: newHistory.length >= limit
       };
     });
     

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
 import { WordGroupRenderer } from './WordGroupRenderer';
 import { CustomArrowLayer } from './CustomArrowLayer';
-import { PlusCircle, Pen, Settings2, Trash2, X, Volume2 } from 'lucide-react';
+import { PlusCircle, Pen, Settings2, Trash2, X, Volume2, Link } from 'lucide-react';
 import { clsx } from 'clsx';
 import { RichTextEditor } from './RichTextEditor';
 import { ArrowTemplateMenu } from './ArrowTemplateMenu';
@@ -430,7 +430,17 @@ export const Workspace: React.FC = () => {
                                 }}>
                                 <PlusCircle size={14} /></button>
                             <button className="text-indigo-500 hover:text-indigo-700 p-1 hover:bg-indigo-50 rounded" title="Speak"
-                                onClick={(e) => { e.stopPropagation(); const u = new SpeechSynthesisUtterance(line.frenchText); u.lang = 'fr-FR'; window.speechSynthesis.speak(u); }}>
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (line.audioUrl) {
+                                    const audio = new Audio(line.audioUrl);
+                                    audio.play().catch(console.error);
+                                  } else {
+                                    const u = new SpeechSynthesisUtterance(line.frenchText);
+                                    u.lang = 'fr-FR';
+                                    window.speechSynthesis.speak(u);
+                                  }
+                                }}>
                                 <Volume2 size={14} /></button>
                             <button className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded relative group/manage" title="Manage">
                                 <Settings2 size={14} />
@@ -443,6 +453,18 @@ export const Workspace: React.FC = () => {
                                             <button key={type} className={clsx("w-full text-left text-[10px] p-1 rounded hover:bg-gray-50 capitalize", line.sectionType === type && "text-blue-600 font-bold bg-blue-50")}
                                                 onClick={(e) => { e.stopPropagation(); updateLineProperty(line.id, { sectionType: type }); }}>{type}</button>
                                         ))}
+                                    </div>
+                                    <div className="border-t my-1 pt-1">
+                                      <button className="w-full text-left text-[10px] p-1 rounded hover:bg-gray-50 flex gap-2 items-center"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const url = prompt("Enter Audio URL (mp3/wav):", line.audioUrl || '');
+                                          if (url !== null) {
+                                            updateLineProperty(line.id, { audioUrl: url });
+                                          }
+                                        }}>
+                                        <Link size={10} /> {line.audioUrl ? 'Edit Audio' : 'Add Audio'}
+                                      </button>
                                     </div>
                                 </div></button>
                         </div>

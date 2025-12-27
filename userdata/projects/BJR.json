@@ -10,23 +10,117 @@
       "id": "ca1ee490-5be4-4762-a588-9bf1cdbf1e3f",
       "lines": [
         {
-          "id": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
-          "lineNumber": 1,
-          "frenchText": "Il fait beau aujourd'hui.",
-          "englishText": "It is nice today."
-        },
-        {
           "id": "66924a16-d332-4eb8-bb22-f1bf5e1e1399",
-          "lineNumber": 2,
+          "lineNumber": 1,
           "frenchText": "Le chat mange la souris.",
           "englishText": "The cat eats the mouse."
+        },
+        {
+          "id": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
+          "lineNumber": 2,
+          "frenchText": "Il fait beau aujourd'hui.",
+          "englishText": "It is nice today.",
+          "englishStyles": [
+            {
+              "wordId": "2",
+              "bold": true
+            }
+          ]
+        },
+        {
+          "id": "e84e808f-67ff-4eb8-8ca0-7853efad653c",
+          "frenchText": "",
+          "englishText": "",
+          "lineNumber": 3,
+          "type": "callout",
+          "contentData": {
+            "id": "e84e808f-67ff-4eb8-8ca0-7853efad653c",
+            "type": "callout",
+            "calloutType": "background",
+            "title": "A LITTLE BACKGROUND",
+            "content": "Historical or contextual background...",
+            "icon": "📚",
+            "color": "#854d0e"
+          }
+        },
+        {
+          "id": "78f7b4dd-768f-4fa9-8bde-d166dbb0a71e",
+          "frenchText": "",
+          "englishText": "",
+          "lineNumber": 4,
+          "type": "divider",
+          "contentData": {
+            "id": "78f7b4dd-768f-4fa9-8bde-d166dbb0a71e",
+            "type": "divider",
+            "dividerStyle": "fleuron",
+            "spacing": "10mm"
+          }
+        },
+        {
+          "id": "b26ad402-e27e-4b96-b11a-4f536277cb8d",
+          "frenchText": "",
+          "englishText": "",
+          "lineNumber": 5,
+          "type": "divider",
+          "contentData": {
+            "id": "b26ad402-e27e-4b96-b11a-4f536277cb8d",
+            "type": "divider",
+            "dividerStyle": "line",
+            "spacing": "10mm"
+          }
         }
       ]
     }
   ],
-  "highlights": [],
-  "wordGroups": [],
-  "arrows": [],
+  "highlights": [
+    {
+      "associatedLineId": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
+      "frenchWordIds": [
+        "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9-french-0"
+      ],
+      "englishWordIds": [],
+      "colorCode": "#dcfce7",
+      "id": "53f8284e-7931-4aee-8b7b-af2829e8c312"
+    }
+  ],
+  "wordGroups": [
+    {
+      "wordIds": [
+        "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9-french-1"
+      ],
+      "lineId": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
+      "language": "french",
+      "type": "verb",
+      "color": "#fca5a5",
+      "id": "1258a315-b7a2-4da7-a4c3-80f69c4a1595"
+    },
+    {
+      "wordIds": [
+        "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9-french-0"
+      ],
+      "lineId": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
+      "language": "french",
+      "type": "subject",
+      "color": "#93c5fd",
+      "id": "865cbd7b-18ec-4fb3-ab6b-f40a8ff385d4"
+    }
+  ],
+  "arrows": [
+    {
+      "sourceGroupIds": [
+        "865cbd7b-18ec-4fb3-ab6b-f40a8ff385d4"
+      ],
+      "targetGroupIds": [
+        "1258a315-b7a2-4da7-a4c3-80f69c4a1595"
+      ],
+      "color": "#6b7280",
+      "style": "solid",
+      "strokeWidth": 1,
+      "headStyle": "arrow",
+      "curvature": 2,
+      "id": "d5818e4f-a1f0-4bf8-8878-590f4876d22d"
+    }
+  ],
   "sidebars": [
     {
       "type": "spoken",

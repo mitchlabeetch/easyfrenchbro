@@ -9,10 +9,10 @@ interface ExportModalProps {
   onClose: () => void;
 }
 
-type ExportFormat = 'pdf' | 'html' | 'print';
+type ExportFormat = 'pdf' | 'html' | 'print' | 'json';
 
 export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => {
-  const { pages, wordGroups, arrows, theme, palettes, metadata } = useStore();
+  const { pages, wordGroups, arrows, theme, palettes, metadata, sidebars, linkedPairs, templates, uiSettings } = useStore();
   
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('html');
   const [htmlOptions, setHtmlOptions] = useState({
@@ -55,6 +55,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
         
         setExported(true);
         setTimeout(() => setExported(false), 2000);
+      } else if (selectedFormat === 'json') {
+        const projectData = {
+           metadata, pages, highlights: [], wordGroups, arrows, sidebars, theme, palettes, linkedPairs, templates, uiSettings
+        };
+        const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${(metadata.title || 'project').replace(/[^a-z0-9]/gi, '_')}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        setExported(true);
+        setTimeout(() => setExported(false), 2000);
       } else if (selectedFormat === 'print' || selectedFormat === 'pdf') {
         window.print();
       }
@@ -95,7 +111,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
           <label className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase mb-2 block">
             Export Format
           </label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <button
               onClick={() => setSelectedFormat('html')}
               className={clsx(
@@ -131,6 +147,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => 
             >
               <File size={24} />
               <span className="text-xs font-medium">Print</span>
+            </button>
+            <button
+              onClick={() => setSelectedFormat('json')}
+              className={clsx(
+                "p-3 rounded-lg border flex flex-col items-center gap-1 transition-all",
+                selectedFormat === 'json'
+                  ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/30 dark:border-blue-700"
+                  : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600"
+              )}
+            >
+              <FileText size={24} />
+              <span className="text-xs font-medium">JSON</span>
             </button>
           </div>
         </div>
