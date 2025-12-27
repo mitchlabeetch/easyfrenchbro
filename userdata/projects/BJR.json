@@ -53,10 +53,23 @@
           }
         },
         {
-          "id": "329719ad-f042-437d-8903-448c6cb5682e",
+          "id": "7680b104-a68c-42a4-993f-acad4f45bc46",
           "frenchText": "",
           "englishText": "",
           "lineNumber": 5,
+          "type": "divider",
+          "contentData": {
+            "id": "7680b104-a68c-42a4-993f-acad4f45bc46",
+            "type": "divider",
+            "dividerStyle": "line",
+            "spacing": "10mm"
+          }
+        },
+        {
+          "id": "329719ad-f042-437d-8903-448c6cb5682e",
+          "frenchText": "",
+          "englishText": "",
+          "lineNumber": 6,
           "type": "image",
           "contentData": {
             "id": "329719ad-f042-437d-8903-448c6cb5682e",
@@ -65,6 +78,35 @@
             "alt": "1766869206077-Bildschirmfoto_2025-12-27_um_01.15.10.png",
             "alignment": "center",
             "width": "80%"
+          }
+        },
+        {
+          "id": "a25a0d5e-5de2-4343-9ce7-9b5601a5a861",
+          "frenchText": "",
+          "englishText": "",
+          "lineNumber": 7,
+          "type": "callout",
+          "contentData": {
+            "id": "a25a0d5e-5de2-4343-9ce7-9b5601a5a861",
+            "type": "callout",
+            "calloutType": "pronunciation",
+            "title": "PRONUNCIATION",
+            "content": "Pronunciation tip...",
+            "icon": "🔊",
+            "color": "#059669"
+          }
+        },
+        {
+          "id": "e3c5f412-4b32-426d-9a78-cd87be5f2ce5",
+          "frenchText": "",
+          "englishText": "",
+          "lineNumber": 8,
+          "type": "divider",
+          "contentData": {
+            "id": "e3c5f412-4b32-426d-9a78-cd87be5f2ce5",
+            "type": "divider",
+            "dividerStyle": "line",
+            "spacing": "10mm"
           }
         }
       ]

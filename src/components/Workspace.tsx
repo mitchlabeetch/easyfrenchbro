@@ -110,6 +110,33 @@ export const Workspace: React.FC = () => {
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         
+        // Calculate insertion index based on drop position
+        const calculateInsertIndex = (): number | undefined => {
+            if (!currentPage) return undefined;
+            
+            // Find all line elements in the current page
+            const pageContainer = e.currentTarget.querySelector('.space-y-6');
+            if (!pageContainer) return undefined;
+            
+            const lineElements = pageContainer.children;
+            if (lineElements.length === 0) return 0;
+            
+            const dropY = e.clientY;
+            
+            // Find the index where to insert based on Y position
+            for (let i = 0; i < lineElements.length; i++) {
+                const rect = lineElements[i].getBoundingClientRect();
+                const lineMidY = rect.top + rect.height / 2;
+                
+                if (dropY < lineMidY) {
+                    return i; // Insert before this line
+                }
+            }
+            
+            // If we're past all lines, insert at the end
+            return currentPage.lines.length;
+        };
+        
         // Check for snippet drop
         const snippetData = e.dataTransfer.getData('application/x-snippet');
         if (snippetData) {
@@ -117,7 +144,8 @@ export const Workspace: React.FC = () => {
                 const { id } = JSON.parse(snippetData);
                 const content = createContentFromSnippetId(id);
                 if (content && currentPage) {
-                    insertContent(currentPage.id, content);
+                    const insertIndex = calculateInsertIndex();
+                    insertContent(currentPage.id, content, insertIndex);
                 }
             } catch (err) {
                 console.error('Failed to parse snippet:', err);
@@ -131,6 +159,7 @@ export const Workspace: React.FC = () => {
             try {
                 const { path, name } = JSON.parse(imageData);
                 if (currentPage) {
+                    const insertIndex = calculateInsertIndex();
                     insertContent(currentPage.id, {
                         id: '',
                         type: 'image',
@@ -138,7 +167,7 @@ export const Workspace: React.FC = () => {
                         alt: name,
                         alignment: 'center',
                         width: '80%'
-                    } as PageContent);
+                    } as PageContent, insertIndex);
                 }
             } catch (err) {
                 console.error('Failed to parse image:', err);
