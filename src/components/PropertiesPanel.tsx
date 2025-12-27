@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
-import { Trash2, Palette, Layout, Settings, Plus, Copy, RefreshCw, Check } from 'lucide-react';
+import { Trash2, Palette, Layout, Settings, Plus, Copy, RefreshCw, Check, BookOpen } from 'lucide-react';
 import { ArrowStyle, ArrowHeadStyle, WordGroupType, PageSize, AnecdoteType } from '../types';
+import { SnippetLibrary } from './SnippetLibrary';
+import { ImageManager } from './ImageManager';
+import { clsx } from 'clsx';
 
 const WORD_TYPE_LABELS: Record<WordGroupType, string> = {
   subject: 'Subject',
@@ -99,7 +102,7 @@ export const PropertiesPanel: React.FC = () => {
     setZoomLevel
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'theme' | 'palette' | 'layout' | 'templates'>('theme');
+  const [activeTab, setActiveTab] = useState<'theme' | 'palette' | 'layout' | 'templates' | 'content'>('theme');
   const [newPaletteName, setNewPaletteName] = useState('');
   const [newTemplateName, setNewTemplateName] = useState('');
   const [templateType, setTemplateType] = useState<'layout' | 'arrow' | 'project' | 'anecdote'>('arrow');
@@ -222,6 +225,12 @@ export const PropertiesPanel: React.FC = () => {
             onClick={() => setActiveTab('templates')}
           >
             <Copy size={16} /> Templ.
+          </button>
+           <button
+            className={`flex-1 p-3 text-xs font-medium flex flex-col items-center gap-1 ${activeTab === 'content' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:bg-gray-50'}`}
+            onClick={() => setActiveTab('content')}
+          >
+            <BookOpen size={16} /> Blocks
           </button>
         </div>
 
@@ -406,6 +415,56 @@ export const PropertiesPanel: React.FC = () => {
                  </div>
               </div>
 
+              {/* Gutter & Mirror Margins for Book Binding */}
+              <div className="border-t pt-4">
+                <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Book Binding</h3>
+                
+                {/* Gutter */}
+                <div className="mb-3">
+                  <label className="block text-[10px] text-gray-400 mb-1">Gutter (binding margin)</label>
+                  <input 
+                    type="text" 
+                    className="w-full border rounded p-1 text-sm"
+                    placeholder="e.g. 15mm"
+                    value={theme.pageLayout?.gutter || '0mm'}
+                    onChange={(e) => updateTheme({ 
+                        pageLayout: { 
+                            ...theme.pageLayout!, 
+                            gutter: e.target.value 
+                        } 
+                    })}
+                  />
+                  <p className="text-[9px] text-gray-400 mt-1">Extra space on the inside edge for binding</p>
+                </div>
+                
+                {/* Mirror Margins Toggle */}
+                <div className="flex items-center justify-between bg-white p-2 rounded border">
+                  <div>
+                    <span className="text-xs font-semibold text-gray-700">Mirror Margins</span>
+                    <p className="text-[9px] text-gray-400">Swap left/right margins on even pages</p>
+                  </div>
+                  <button
+                    onClick={() => updateTheme({ 
+                        pageLayout: { 
+                            ...theme.pageLayout!, 
+                            mirrorMargins: !theme.pageLayout?.mirrorMargins 
+                        } 
+                    })}
+                    className={clsx(
+                      'w-10 h-5 rounded-full transition-colors relative',
+                      theme.pageLayout?.mirrorMargins ? 'bg-blue-500' : 'bg-gray-300'
+                    )}
+                  >
+                    <span 
+                      className={clsx(
+                        'absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all shadow',
+                        theme.pageLayout?.mirrorMargins ? 'left-5' : 'left-0.5'
+                      )}
+                    />
+                  </button>
+                </div>
+              </div>
+
               <div className="border-t pt-4">
                 <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Page Background</h3>
                 <div className="flex items-center justify-between bg-white p-2 rounded border">
@@ -416,6 +475,196 @@ export const PropertiesPanel: React.FC = () => {
                     onChange={(e) => updateTheme({ pageBackground: e.target.value })}
                     className="w-6 h-6 border-none p-0 rounded cursor-pointer"
                   />
+                </div>
+              </div>
+
+              {/* Header/Footer Settings */}
+              <div className="border-t pt-4">
+                <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Running Headers</h3>
+                
+                {/* Header */}
+                <div className="mb-4">
+                  <label className="block text-[10px] text-gray-400 mb-1">Header Template</label>
+                  <div className="grid grid-cols-3 gap-1 text-xs">
+                    <input 
+                      type="text" 
+                      className="border rounded p-1" 
+                      placeholder="Left"
+                      value={theme.pageTemplate?.header?.left || ''}
+                      onChange={(e) => updateTheme({ 
+                          pageTemplate: { 
+                              ...theme.pageTemplate,
+                              header: { 
+                                  ...theme.pageTemplate?.header,
+                                  left: e.target.value,
+                                  center: theme.pageTemplate?.header?.center || '',
+                                  right: theme.pageTemplate?.header?.right || ''
+                              }
+                          } 
+                      })}
+                    />
+                    <input 
+                      type="text" 
+                      className="border rounded p-1" 
+                      placeholder="Center"
+                      value={theme.pageTemplate?.header?.center || ''}
+                      onChange={(e) => updateTheme({ 
+                          pageTemplate: { 
+                              ...theme.pageTemplate,
+                              header: { 
+                                  ...theme.pageTemplate?.header,
+                                  left: theme.pageTemplate?.header?.left || '',
+                                  center: e.target.value,
+                                  right: theme.pageTemplate?.header?.right || ''
+                              }
+                          } 
+                      })}
+                    />
+                    <input 
+                      type="text" 
+                      className="border rounded p-1" 
+                      placeholder="Right"
+                      value={theme.pageTemplate?.header?.right || ''}
+                      onChange={(e) => updateTheme({ 
+                          pageTemplate: { 
+                              ...theme.pageTemplate,
+                              header: { 
+                                  ...theme.pageTemplate?.header,
+                                  left: theme.pageTemplate?.header?.left || '',
+                                  center: theme.pageTemplate?.header?.center || '',
+                                  right: e.target.value
+                              }
+                          } 
+                      })}
+                    />
+                  </div>
+                  <p className="text-[9px] text-gray-400 mt-1">Use: {'{'}pageNumber{'}'}, {'{'}title{'}'}</p>
+                </div>
+                
+                {/* Footer */}
+                <div>
+                  <label className="block text-[10px] text-gray-400 mb-1">Footer Template</label>
+                  <div className="grid grid-cols-3 gap-1 text-xs">
+                    <input 
+                      type="text" 
+                      className="border rounded p-1" 
+                      placeholder="Left"
+                      value={theme.pageTemplate?.footer?.left || ''}
+                      onChange={(e) => updateTheme({ 
+                          pageTemplate: { 
+                              ...theme.pageTemplate,
+                              footer: { 
+                                  ...theme.pageTemplate?.footer,
+                                  left: e.target.value,
+                                  center: theme.pageTemplate?.footer?.center || '',
+                                  right: theme.pageTemplate?.footer?.right || ''
+                              }
+                          } 
+                      })}
+                    />
+                    <input 
+                      type="text" 
+                      className="border rounded p-1" 
+                      placeholder="Center (Page #)"
+                      value={theme.pageTemplate?.footer?.center || '{pageNumber}'}
+                      onChange={(e) => updateTheme({ 
+                          pageTemplate: { 
+                              ...theme.pageTemplate,
+                              footer: { 
+                                  ...theme.pageTemplate?.footer,
+                                  left: theme.pageTemplate?.footer?.left || '',
+                                  center: e.target.value,
+                                  right: theme.pageTemplate?.footer?.right || ''
+                              }
+                          } 
+                      })}
+                    />
+                    <input 
+                      type="text" 
+                      className="border rounded p-1" 
+                      placeholder="Right"
+                      value={theme.pageTemplate?.footer?.right || ''}
+                      onChange={(e) => updateTheme({ 
+                          pageTemplate: { 
+                              ...theme.pageTemplate,
+                              footer: { 
+                                  ...theme.pageTemplate?.footer,
+                                  left: theme.pageTemplate?.footer?.left || '',
+                                  center: theme.pageTemplate?.footer?.center || '',
+                                  right: e.target.value
+                              }
+                          } 
+                      })}
+                    />
+                </div>
+                {/* End Footer Template */}
+              </div>
+              {/* End Running Headers */}
+              </div>
+              {/* End Header/Footer Settings */}
+              
+              {/* Print Production Section */}
+              <div className="border-t pt-4">
+                <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Print Production</h3>
+                
+                {/* Bleed */}
+                <div className="mb-3">
+                  <label className="block text-[10px] text-gray-400 mb-1">Bleed</label>
+                  <input 
+                    type="text" 
+                    className="w-full border rounded p-1 text-sm" 
+                    placeholder="3mm"
+                    value={theme.printSettings?.bleed || ''}
+                    onChange={(e) => updateTheme({ printSettings: { ...theme.printSettings, bleed: e.target.value } })}
+                  />
+                </div>
+                
+                {/* Marks */}
+                <div className="flex gap-4 mb-3">
+                  <label className="flex items-center gap-2 text-xs">
+                    <input 
+                      type="checkbox" 
+                      checked={theme.printSettings?.showCropMarks || false}
+                      onChange={(e) => updateTheme({ printSettings: { ...theme.printSettings, showCropMarks: e.target.checked } })}
+                    />
+                    Crop Marks
+                  </label>
+                  <label className="flex items-center gap-2 text-xs">
+                    <input 
+                      type="checkbox" 
+                      checked={theme.printSettings?.showRegistrationMarks || false}
+                      onChange={(e) => updateTheme({ printSettings: { ...theme.printSettings, showRegistrationMarks: e.target.checked } })}
+                    />
+                    Registration
+                  </label>
+                </div>
+                
+                {/* Color Profile */}
+                <div className="mb-3">
+                  <label className="block text-[10px] text-gray-400 mb-1">Color Profile</label>
+                  <select 
+                    className="w-full border rounded p-1 text-sm"
+                    value={theme.printSettings?.colorProfile || 'sRGB'}
+                    onChange={(e) => updateTheme({ printSettings: { ...theme.printSettings, colorProfile: e.target.value as 'sRGB' | 'CMYK' | 'AdobeRGB' } })}
+                  >
+                    <option value="sRGB">sRGB (Screen)</option>
+                    <option value="CMYK">CMYK Preview</option>
+                    <option value="AdobeRGB">Adobe RGB</option>
+                  </select>
+                </div>
+                
+                {/* Quality */}
+                <div className="mb-3">
+                  <label className="block text-[10px] text-gray-400 mb-1">Export Quality</label>
+                  <select 
+                    className="w-full border rounded p-1 text-sm"
+                    value={theme.printSettings?.quality || 'high'}
+                    onChange={(e) => updateTheme({ printSettings: { ...theme.printSettings, quality: e.target.value as 'draft' | 'standard' | 'high' } })}
+                  >
+                    <option value="draft">Draft (72 DPI)</option>
+                    <option value="standard">Standard (150 DPI)</option>
+                    <option value="high">High (300 DPI)</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -600,6 +849,51 @@ export const PropertiesPanel: React.FC = () => {
                          ))
                      )}
                  </div>
+            </div>
+        )}
+
+        {activeTab === 'content' && (
+            <div className="space-y-4">
+                <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Content Blocks</h3>
+                
+                <div className="bg-blue-50 p-2 rounded text-xs text-blue-700 mb-4">
+                    💡 Drag blocks to the page or click to insert at cursor
+                </div>
+                
+                {/* Snippet Library */}
+                <div className="border rounded overflow-hidden">
+                    <SnippetLibrary
+                        onInsertSnippet={(content) => {
+                            const pages = useStore.getState().pages;
+                            const currentPageIndex = useStore.getState().currentPageIndex;
+                            const currentPage = pages[currentPageIndex];
+                            if (currentPage) {
+                                useStore.getState().insertContent(currentPage.id, content);
+                            }
+                        }}
+                    />
+                </div>
+                
+                {/* Image Manager */}
+                <div className="border rounded overflow-hidden mt-4">
+                    <ImageManager
+                        onInsertImage={(path, alt) => {
+                            const pages = useStore.getState().pages;
+                            const currentPageIndex = useStore.getState().currentPageIndex;
+                            const currentPage = pages[currentPageIndex];
+                            if (currentPage) {
+                                useStore.getState().insertContent(currentPage.id, {
+                                    id: '',
+                                    type: 'image',
+                                    src: `http://localhost:3001${path}`,
+                                    alt: alt,
+                                    alignment: 'center',
+                                    width: '80%'
+                                });
+                            }
+                        }}
+                    />
+                </div>
             </div>
         )}
         </div>

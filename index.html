@@ -3,16 +3,74 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Professional bilingual book layout tool for creating print-ready French-English language learning materials with 300 DPI PDF export." />
+    <meta name="keywords" content="bilingual, book layout, French, English, language learning, PDF export, print-ready" />
+    <meta name="author" content="EasyFrenchBro" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="EasyFrenchBro - Bilingual Book Layout Tool" />
+    <meta property="og:description" content="Create professional bilingual books with grammar annotations, styled callouts, and print-ready PDF export." />
+    <meta property="og:type" content="website" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📖%3C/text%3E%3C/svg%3E" />
+    
+    <!-- Font Preconnects -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lato:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600;700&family=Playfair+Display:wght@400;700&family=Raleway:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
-    <title>Bilingual Book Layout Tool</title>
+    
+    <!-- Google Fonts - Full Set for Book Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Source+Sans+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+Pro:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+    
+    <!-- Local Fonts Fallback (for offline use, serve from /userdata/fonts/) -->
+    <style>
+      /* Local font fallbacks - these will be used if the fonts are available locally */
+      @font-face {
+        font-family: 'Libre Baskerville Local';
+        src: local('Libre Baskerville'),
+             url('/fonts/libre-baskerville-regular.woff2') format('woff2');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      
+      @font-face {
+        font-family: 'Libre Baskerville Local';
+        src: local('Libre Baskerville Bold'),
+             url('/fonts/libre-baskerville-bold.woff2') format('woff2');
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+      
+      @font-face {
+        font-family: 'Inter Local';
+        src: local('Inter'),
+             url('/fonts/inter-variable.woff2') format('woff2-variations');
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: swap;
+      }
+    </style>
+    
+    <title>EasyFrenchBro - Bilingual Book Layout Tool</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Print-specific setup -->
+    <script>
+      // Detect print mode and optimize
+      window.matchMedia('print').addListener(function(mql) {
+        if (mql.matches) {
+          document.body.classList.add('printing');
+        } else {
+          document.body.classList.remove('printing');
+        }
+      });
+    </script>
   </body>
 </html>

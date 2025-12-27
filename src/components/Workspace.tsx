@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store';
 import { WordGroupRenderer } from './WordGroupRenderer';
 import { CustomArrowLayer } from './CustomArrowLayer';
@@ -7,7 +7,9 @@ import { clsx } from 'clsx';
 import { RichTextEditor } from './RichTextEditor';
 import { ArrowTemplateMenu } from './ArrowTemplateMenu';
 import { ArrowEditMenu } from './ArrowEditMenu';
-import { TextStyle, AnecdoteType } from '../types';
+import { TextStyle, AnecdoteType, PageContent } from '../types';
+import { ViewModeSelector, SpreadNavigator } from './PageSpreadView';
+import { createContentFromSnippetId } from './SnippetLibrary';
 
 export const Workspace: React.FC = () => {
     const {
@@ -38,7 +40,11 @@ export const Workspace: React.FC = () => {
         selectedElementType,
         updateArrow,
         removeArrow,
-        arrows
+        arrows,
+        viewMode,
+        setViewMode,
+        insertContent,
+        setCurrentPageIndex
     } = useStore();
 
     const [editorState, setEditorState] = useState<{
@@ -78,9 +84,65 @@ export const Workspace: React.FC = () => {
 
     // Selected line for keyboard operations
     const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null);
+    
+    // Spread view state (for two-page spread mode)
+    const [currentSpreadIndex, setCurrentSpreadIndex] = useState(0);
 
     const currentPage = pages[currentPageIndex || 0];
     const splitRatio = currentPage?.splitRatio ?? theme.pageLayout?.splitRatio ?? 0.5;
+    
+    // Get pages for spread view (left = verso/even, right = recto/odd)
+    // @ts-expect-error - Will be used for spread view rendering
+    const _getSpreadPages = useCallback(() => {
+        const leftPageIndex = currentSpreadIndex * 2;
+        const rightPageIndex = leftPageIndex + 1;
+        return {
+            leftPage: pages[leftPageIndex] || null,
+            rightPage: pages[rightPageIndex] || null,
+            leftPageNumber: leftPageIndex + 1,
+            rightPageNumber: rightPageIndex + 1,
+        };
+    }, [currentSpreadIndex, pages]);
+    
+    // Handle snippet/image drops on the page
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        
+        // Check for snippet drop
+        const snippetData = e.dataTransfer.getData('application/x-snippet');
+        if (snippetData) {
+            try {
+                const { id } = JSON.parse(snippetData);
+                const content = createContentFromSnippetId(id);
+                if (content && currentPage) {
+                    insertContent(currentPage.id, content);
+                }
+            } catch (err) {
+                console.error('Failed to parse snippet:', err);
+            }
+            return;
+        }
+        
+        // Check for image drop
+        const imageData = e.dataTransfer.getData('application/x-image');
+        if (imageData) {
+            try {
+                const { path, name } = JSON.parse(imageData);
+                if (currentPage) {
+                    insertContent(currentPage.id, {
+                        id: '',
+                        type: 'image',
+                        src: `http://localhost:3001${path}`,
+                        alt: name,
+                        alignment: 'center',
+                        width: '80%'
+                    } as PageContent);
+                }
+            } catch (err) {
+                console.error('Failed to parse image:', err);
+            }
+        }
+    }, [currentPage, insertContent]);
 
     // Helper to get coordinates relative to the zoomed workspace-inner
     const getRelativePosition = (clientX: number, clientY: number) => {
@@ -233,10 +295,14 @@ export const Workspace: React.FC = () => {
 
         const parts = ["3rem"];
         if (showFrench && showEnglish) {
-            parts.push(`${splitRatio}fr`);
-            parts.push(`${1 - splitRatio}fr`);
+            // Use minmax to prevent columns from crushing below readable width
+            // Each text column gets at least 120px minimum
+            const frenchWidth = `minmax(120px, ${splitRatio}fr)`;
+            const englishWidth = `minmax(120px, ${1 - splitRatio}fr)`;
+            parts.push(frenchWidth);
+            parts.push(englishWidth);
         } else if (showFrench || showEnglish) {
-            parts.push("1fr");
+            parts.push("minmax(200px, 1fr)");
         }
         parts.push("12rem");
         return parts.join(" ");
@@ -263,16 +329,47 @@ export const Workspace: React.FC = () => {
         setEditorState({ ...editorState, isOpen: false });
     };
 
-    const getPageStyle = () => {
+    const getPageStyle = (pageNumber?: number) => {
         const layout = theme.pageLayout;
         if (layout) {
+            // Calculate effective margins with gutter support
+            const baseMargins = {
+                top: layout.margins.top,
+                right: layout.margins.right,
+                bottom: layout.margins.bottom,
+                left: layout.margins.left,
+            };
+            
+            // Apply mirror margins and gutter for book binding
+            // Even pages (left/verso): gutter on right
+            // Odd pages (right/recto): gutter on left
+            const isRecto = (pageNumber || (currentPageIndex || 0) + 1) % 2 === 1;
+            const gutter = layout.gutter || '0mm';
+            const gutterNum = parseFloat(gutter) || 0;
+            const gutterUnit = gutter.replace(/[0-9.]/g, '') || 'mm';
+            
+            let effectiveLeft = baseMargins.left;
+            let effectiveRight = baseMargins.right;
+            
+            if (layout.mirrorMargins && gutterNum > 0) {
+                if (isRecto) {
+                    // Odd pages: add gutter to left (inside)
+                    const leftNum = parseFloat(baseMargins.left) || 0;
+                    effectiveLeft = `${leftNum + gutterNum}${gutterUnit}`;
+                } else {
+                    // Even pages: add gutter to right (inside)
+                    const rightNum = parseFloat(baseMargins.right) || 0;
+                    effectiveRight = `${rightNum + gutterNum}${gutterUnit}`;
+                }
+            }
+            
             return {
                 width: layout.width,
                 minHeight: layout.height,
-                paddingTop: layout.margins.top,
-                paddingRight: layout.margins.right,
-                paddingBottom: layout.margins.bottom,
-                paddingLeft: layout.margins.left,
+                paddingTop: baseMargins.top,
+                paddingRight: effectiveRight,
+                paddingBottom: baseMargins.bottom,
+                paddingLeft: effectiveLeft,
                 backgroundColor: theme.pageBackground || '#ffffff',
             };
         }
@@ -284,6 +381,170 @@ export const Workspace: React.FC = () => {
         };
     };
     
+    // Helper function to render page content (lines, sidebars, etc.)
+    const renderPageContent = (page: typeof pages[0], _pageIdx: number) => (
+        <div className="space-y-6 relative z-0">
+            {page.lines.map((line, lineIndex) => (
+                <div key={line.id} 
+                    className={clsx(
+                        "grid gap-4 group relative transition-all",
+                        dragOverIndex === lineIndex && "ring-2 ring-blue-400 bg-blue-50",
+                        draggedLineIndex === lineIndex && "opacity-50 scale-[0.98]",
+                        selectedLineIndex === lineIndex && "ring-2 ring-indigo-400 bg-indigo-50"
+                    )}
+                    style={{ gridTemplateColumns: getGridTemplate() }}
+                    onClick={() => setSelectedLineIndex(lineIndex)}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) setDragOverIndex(lineIndex); }}
+                    onDragLeave={() => setDragOverIndex(null)}
+                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) { reorderLines(page.id, draggedLineIndex, lineIndex); } setDraggedLineIndex(null); setDragOverIndex(null); }}
+                >
+                    {/* Line Number Column - Acts as drag handle */}
+                    <div 
+                        className="text-gray-300 font-mono text-sm text-right pr-2 pt-1 select-none flex flex-col items-end gap-1 cursor-grab active:cursor-grabbing"
+                        draggable
+                        onDragStart={(e) => { 
+                            e.stopPropagation();
+                            setDraggedLineIndex(lineIndex); 
+                            e.dataTransfer.setData('text/plain', String(lineIndex));
+                            e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragEnd={() => { setDraggedLineIndex(null); setDragOverIndex(null); }}
+                        title="Drag to reorder"
+                    >
+                        <span className="group-hover:hidden">{line.lineNumber}</span>
+                        <div className="hidden group-hover:flex flex-col gap-1 no-print">
+                            {/* Drag grip icon */}
+                            <div className="text-gray-400 hover:text-gray-600 p-1 cursor-grab" title="Drag to reorder">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+                                    <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                                    <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+                                </svg>
+                            </div>
+                            <button className="text-blue-500 hover:text-blue-700 p-1 hover:bg-blue-50 rounded" title="Add Anecdote"
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const pos = getRelativePosition(rect.right + 10, rect.top);
+                                    setSidebarMenu({ isOpen: true, x: pos.x, y: pos.y, lineId: line.id });
+                                }}>
+                                <PlusCircle size={14} /></button>
+                            <button className="text-indigo-500 hover:text-indigo-700 p-1 hover:bg-indigo-50 rounded" title="Speak"
+                                onClick={(e) => { e.stopPropagation(); const u = new SpeechSynthesisUtterance(line.frenchText); u.lang = 'fr-FR'; window.speechSynthesis.speak(u); }}>
+                                <Volume2 size={14} /></button>
+                            <button className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded relative group/manage" title="Manage">
+                                <Settings2 size={14} />
+                                <div className="absolute left-full top-0 ml-2 bg-white shadow-xl border rounded p-2 w-32 hidden group-focus-within/manage:block z-50">
+                                    <button className="w-full text-left text-xs p-1 hover:bg-red-50 text-red-600 rounded flex gap-2 items-center"
+                                        onClick={(e) => { e.stopPropagation(); if (confirm('Delete line?')) removeLine(page.id, line.id); }}>
+                                        <Trash2 size={12} /> Delete</button>
+                                    <div className="border-t my-1 pt-1">
+                                        {(['paragraph', 'title', 'heading', 'note', 'list'] as const).map(type => (
+                                            <button key={type} className={clsx("w-full text-left text-[10px] p-1 rounded hover:bg-gray-50 capitalize", line.sectionType === type && "text-blue-600 font-bold bg-blue-50")}
+                                                onClick={(e) => { e.stopPropagation(); updateLineProperty(line.id, { sectionType: type }); }}>{type}</button>
+                                        ))}
+                                    </div>
+                                </div></button>
+                        </div>
+                    </div>
+                    {theme.layoutMode === 'interlinear' ? (
+                        <div className={clsx("relative p-1 space-y-2", line.sectionType === 'title' && "text-center py-4", line.sectionType === 'heading' && "border-b border-gray-100 py-2")}>
+                            {uiSettings.showFrench && (
+                                <div className={clsx("relative p-1 rounded hover:bg-gray-50", line.sectionType === 'title' && "text-2xl font-bold", line.sectionType === 'heading' && "text-xl font-bold")}
+                                    onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french', line.frenchText, line.frenchStyles)}>
+                                    <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                        <Pen size={12} className="text-gray-400" />
+                                    </div>
+                                    <WordGroupRenderer text={line.frenchText} language="french" lineId={line.id} styles={line.frenchStyles} /></div>
+                            )}
+                            {uiSettings.showEnglish && (
+                                <div className={clsx("relative p-1 rounded hover:bg-gray-50 text-gray-500", line.sectionType === 'title' && "text-lg italic text-gray-400", line.sectionType === 'heading' && "text-base italic text-gray-400")}
+                                    onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english', line.englishText, line.englishStyles)}>
+                                    <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                        <Pen size={12} className="text-gray-400" />
+                                    </div>
+                                    <WordGroupRenderer text={line.englishText} language="english" lineId={line.id} styles={line.englishStyles} /></div>
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            {uiSettings.showFrench && (
+                                <div className={clsx("relative p-1 rounded hover:bg-gray-50", line.sectionType === 'title' && "text-2xl font-bold text-center", line.sectionType === 'heading' && "text-xl font-bold", line.sectionType === 'note' && "text-sm italic text-gray-500 bg-yellow-50 border-l-4 border-yellow-300 pl-3")}
+                                    onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french', line.frenchText, line.frenchStyles)}>
+                                    <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                        <Pen size={12} className="text-gray-400" />
+                                    </div>
+                                    <WordGroupRenderer text={line.frenchText} language="french" lineId={line.id} styles={line.frenchStyles} /></div>
+                            )}
+
+                            {uiSettings.showFrench && uiSettings.showEnglish && (
+                                <div onMouseDown={handleSplitMouseDown}
+                                    className="absolute top-0 bottom-0 w-4 -ml-2 cursor-col-resize hover:bg-blue-400/20 z-20 transition-colors flex justify-center"
+                                    style={{ left: `calc(3rem + (100% - 15rem) * ${splitRatio})` }}>
+                                        {/* Visual indicator line */}
+                                        <div className="w-px h-full bg-gray-200 group-hover:bg-blue-400"></div>
+                                </div>
+                            )}
+
+                            {uiSettings.showEnglish && (
+                                <div className={clsx("relative p-1 rounded hover:bg-gray-50", uiSettings.showFrench && "border-l border-gray-100 pl-4", line.sectionType === 'title' && "text-lg italic text-gray-400 text-center", line.sectionType === 'heading' && "text-base italic text-gray-400")}
+                                    onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english', line.englishText, line.englishStyles)}>
+                                    <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                        <Pen size={12} className="text-gray-400" />
+                                    </div>
+                                    <WordGroupRenderer text={line.englishText} language="english" lineId={line.id} styles={line.englishStyles} /></div>
+                            )}
+                        </>
+                    )}
+                    <div className="relative">
+                    {sidebars.filter(s => s.anchoredLineId === line.id).map(card => {
+                            const color = card.color || getColorForAnecdote(card.type as AnecdoteType) || '#fef3c7';
+                            
+                            // Get type label
+                            const typeLabels: Record<string, string> = {
+                                grammar: '📘 Grammar',
+                                spoken: '💬 Spoken',
+                                history: '📜 History',
+                                falseFriend: '⚠️ False Friend',
+                                pronunciation: '🔊 Pronunciation',
+                                vocab: '📚 Vocabulary'
+                            };
+                            const typeLabel = typeLabels[card.type] || card.type;
+                            
+                            return (
+                                <div key={card.id} className="rounded text-sm mb-2 shadow-sm group/card relative overflow-hidden" style={{ backgroundColor: color }}>
+                                    {/* Title/Type Header - darker background */}
+                                    <div 
+                                        className="px-2 py-1 font-bold text-xs text-gray-800 flex items-center justify-between"
+                                        style={{ 
+                                            backgroundColor: 'rgba(0,0,0,0.15)',
+                                            borderBottom: '1px solid rgba(0,0,0,0.1)'
+                                        }}
+                                    >
+                                        <span>{card.title || typeLabel}</span>
+                                        <div className="hidden group-hover/card:flex no-print">
+                                            <button onClick={() => removeSidebarCard(card.id)} className="p-0.5 hover:bg-red-100 text-red-600 rounded"><X size={12} /></button>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Card content */}
+                                    <div className="p-2">
+                                        <textarea 
+                                            className="w-full bg-transparent border-none resize-none focus:ring-0 text-gray-800 p-0 text-xs"
+                                            value={card.content} 
+                                            onChange={(e) => updateSidebarCard(card.id, { content: e.target.value })} 
+                                            rows={2} 
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+    
     /* 
     // Helper to calculate "Above" position (Available for future use)
     const getAbovePosition = (rect: DOMRect, height: number = 200) => {
@@ -293,10 +554,75 @@ export const Workspace: React.FC = () => {
     }; 
     */
 
+    // Get color profile class
+    const colorProfileClass = theme.printSettings?.colorProfile === 'CMYK' 
+        ? 'color-profile-cmyk' 
+        : theme.printSettings?.colorProfile === 'AdobeRGB' 
+            ? 'color-profile-adobergb' 
+            : '';
+
     return (
         <div id="workspace-container" ref={workspaceRef}
-            className={clsx("flex-1 overflow-auto bg-gray-200 p-8 relative flex flex-col items-center", uiSettings.focusMode && "p-0")}
-            onClick={handleBackgroundClick} onMouseDown={handleWorkspaceMouseDown}>
+            className={clsx(
+                "flex-1 overflow-auto bg-gray-200 p-8 relative flex flex-col items-center", 
+                uiSettings.focusMode && "p-0",
+                colorProfileClass
+            )}
+            onClick={handleBackgroundClick} 
+            onMouseDown={handleWorkspaceMouseDown}
+            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
+            onDrop={handleDrop}
+        >
+            
+            {/* View Mode Toolbar */}
+            <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-40 flex items-center gap-3 no-print">
+                <ViewModeSelector 
+                    currentMode={viewMode} 
+                    onModeChange={setViewMode} 
+                />
+                
+                {/* Spread Navigator (only in spread view) */}
+                {viewMode === 'spread' && (
+                    <SpreadNavigator
+                        currentSpread={currentSpreadIndex}
+                        totalPages={pages.length}
+                        onNavigate={setCurrentSpreadIndex}
+                    />
+                )}
+                
+                {/* Page Navigation (only in single view) */}
+                {viewMode === 'single' && pages.length > 1 && (
+                    <div className="flex items-center gap-2 bg-white rounded-lg shadow px-3 py-2">
+                        <button
+                            onClick={() => currentPageIndex > 0 && setCurrentPageIndex(currentPageIndex - 1)}
+                            disabled={currentPageIndex === 0}
+                            className={clsx(
+                                'px-2 py-1 rounded text-sm',
+                                currentPageIndex > 0 
+                                    ? 'text-gray-700 hover:bg-gray-100' 
+                                    : 'text-gray-300 cursor-not-allowed'
+                            )}
+                        >
+                            ← Prev
+                        </button>
+                        <div className="text-xs text-gray-500 px-2">
+                            Page {(currentPageIndex || 0) + 1} of {pages.length}
+                        </div>
+                        <button
+                            onClick={() => currentPageIndex < pages.length - 1 && setCurrentPageIndex(currentPageIndex + 1)}
+                            disabled={currentPageIndex >= pages.length - 1}
+                            className={clsx(
+                                'px-2 py-1 rounded text-sm',
+                                currentPageIndex < pages.length - 1 
+                                    ? 'text-gray-700 hover:bg-gray-100' 
+                                    : 'text-gray-300 cursor-not-allowed'
+                            )}
+                        >
+                            Next →
+                        </button>
+                    </div>
+                )}
+            </div>
             
             {/* Color Picker for Legacy Highlight Mode */}
             {selectionMode === 'highlight' && (
@@ -411,116 +737,80 @@ export const Workspace: React.FC = () => {
                         position={{ x: editorState.position.x, y: Math.max(10, editorState.position.y - 250) }} />
                 )}
                 <div className="print:block origin-top">
-                    {pages.length > 0 && currentPage ? (
-                        <div key={currentPage.id} className="bg-white shadow-lg mx-auto mb-8 relative print:w-full print:h-screen print:shadow-none"
-                            style={{ ...getPageStyle(), fontSize: theme.fontSize, lineHeight: theme.lineHeight }}>
-                            <div className="absolute -top-8 left-0 right-0 text-center text-gray-400 text-xs no-print flex justify-between px-2">
-                                <span>Page {(currentPageIndex || 0) + 1} of {pages.length}</span>
-                            </div>
-                            <div className="space-y-6 relative z-0">
-                                {currentPage.lines.map((line, lineIndex) => (
-                                    <div key={line.id} className={clsx("grid gap-4 group relative transition-all cursor-pointer", dragOverIndex === lineIndex && "ring-2 ring-blue-400 bg-blue-50", draggedLineIndex === lineIndex && "opacity-50", selectedLineIndex === lineIndex && "ring-2 ring-indigo-400 bg-indigo-50")}
-                                        style={{ gridTemplateColumns: getGridTemplate() }} onClick={() => setSelectedLineIndex(lineIndex)} draggable
-                                        onDragStart={(e) => { setDraggedLineIndex(lineIndex); e.dataTransfer.setData('text/plain', String(lineIndex)); }}
-                                        onDragOver={(e) => { e.preventDefault(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex) setDragOverIndex(lineIndex); }}
-                                        onDrop={(e) => { e.preventDefault(); if (draggedLineIndex !== null && draggedLineIndex !== lineIndex && currentPage) reorderLines(currentPage.id, draggedLineIndex, lineIndex); setDraggedLineIndex(null); setDragOverIndex(null); }}
-                                        onDragEnd={() => { setDraggedLineIndex(null); setDragOverIndex(null); }}>
-                                        <div className="text-gray-300 font-mono text-sm text-right pr-2 pt-1 select-none flex flex-col items-end gap-1">
-                                            <span className="group-hover:hidden">{lineIndex + 1}</span>
-                                            <div className="hidden group-hover:flex flex-col gap-1 no-print">
-                                                <button className="text-blue-500 hover:text-blue-700 p-1 hover:bg-blue-50 rounded" title="Add Anecdote"
-                                                    onClick={(e) => { 
-                                                        e.stopPropagation(); 
-                                                        const rect = e.currentTarget.getBoundingClientRect();
-                                                        const pos = getRelativePosition(rect.right + 10, rect.top);
-                                                        setSidebarMenu({ isOpen: true, x: pos.x, y: pos.y, lineId: line.id });
-                                                    }}>
-                                                    <PlusCircle size={14} /></button>
-                                                <button className="text-indigo-500 hover:text-indigo-700 p-1 hover:bg-indigo-50 rounded" title="Speak"
-                                                    onClick={(e) => { e.stopPropagation(); const u = new SpeechSynthesisUtterance(line.frenchText); u.lang = 'fr-FR'; window.speechSynthesis.speak(u); }}>
-                                                    <Volume2 size={14} /></button>
-                                                <button className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-100 rounded relative group/manage" title="Manage">
-                                                    <Settings2 size={14} />
-                                                    <div className="absolute left-full top-0 ml-2 bg-white shadow-xl border rounded p-2 w-32 hidden group-focus-within/manage:block z-50">
-                                                        <button className="w-full text-left text-xs p-1 hover:bg-red-50 text-red-600 rounded flex gap-2 items-center"
-                                                            onClick={(e) => { e.stopPropagation(); if (confirm('Delete line?')) removeLine(currentPage.id, line.id); }}>
-                                                            <Trash2 size={12} /> Delete</button>
-                                                        <div className="border-t my-1 pt-1">
-                                                            {(['paragraph', 'title', 'heading', 'note', 'list'] as const).map(type => (
-                                                                <button key={type} className={clsx("w-full text-left text-[10px] p-1 rounded hover:bg-gray-50 capitalize", line.sectionType === type && "text-blue-600 font-bold bg-blue-50")}
-                                                                    onClick={(e) => { e.stopPropagation(); updateLineProperty(line.id, { sectionType: type }); }}>{type}</button>
-                                                            ))}
-                                                        </div>
-                                                    </div></button>
-                                            </div>
-                                        </div>
-                                        {theme.layoutMode === 'interlinear' ? (
-                                            <div className={clsx("relative p-1 space-y-2", line.sectionType === 'title' && "text-center py-4", line.sectionType === 'heading' && "border-b border-gray-100 py-2")}>
-                                                {uiSettings.showFrench && (
-                                                    <div className={clsx("relative p-1 rounded hover:bg-gray-50", line.sectionType === 'title' && "text-2xl font-bold", line.sectionType === 'heading' && "text-xl font-bold")}
-                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french', line.frenchText, line.frenchStyles)}>
-                                                        <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                                                            <Pen size={12} className="text-gray-400" />
-                                                        </div>
-                                                        <WordGroupRenderer text={line.frenchText} language="french" lineId={line.id} styles={line.frenchStyles} /></div>
-                                                )}
-                                                {uiSettings.showEnglish && (
-                                                    <div className={clsx("relative p-1 rounded hover:bg-gray-50 text-gray-500", line.sectionType === 'title' && "text-lg italic text-gray-400", line.sectionType === 'heading' && "text-base italic text-gray-400")}
-                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english', line.englishText, line.englishStyles)}>
-                                                        <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                                                            <Pen size={12} className="text-gray-400" />
-                                                        </div>
-                                                        <WordGroupRenderer text={line.englishText} language="english" lineId={line.id} styles={line.englishStyles} /></div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <>
-                                                {uiSettings.showFrench && (
-                                                    <div className={clsx("relative p-1 rounded hover:bg-gray-50", line.sectionType === 'title' && "text-2xl font-bold text-center", line.sectionType === 'heading' && "text-xl font-bold", line.sectionType === 'note' && "text-sm italic text-gray-500 bg-yellow-50 border-l-4 border-yellow-300 pl-3")}
-                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'french', line.frenchText, line.frenchStyles)}>
-                                                        <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                                                            <Pen size={12} className="text-gray-400" />
-                                                        </div>
-                                                        <WordGroupRenderer text={line.frenchText} language="french" lineId={line.id} styles={line.frenchStyles} /></div>
-                                                )}
-
-                                                {uiSettings.showFrench && uiSettings.showEnglish && (
-                                                    <div onMouseDown={handleSplitMouseDown}
-                                                        className="absolute top-0 bottom-0 w-4 -ml-2 cursor-col-resize hover:bg-blue-400/20 z-20 transition-colors flex justify-center"
-                                                        style={{ left: `calc(3rem + (100% - 15rem) * ${splitRatio})` }}>
-                                                            {/* Visual indicator line */}
-                                                            <div className="w-px h-full bg-gray-200 group-hover:bg-blue-400"></div>
-                                                    </div>
-                                                )}
-
-                                                {uiSettings.showEnglish && (
-                                                    <div className={clsx("relative p-1 rounded hover:bg-gray-50", uiSettings.showFrench && "border-l border-gray-100 pl-4", line.sectionType === 'title' && "text-lg italic text-gray-400 text-center", line.sectionType === 'heading' && "text-base italic text-gray-400")}
-                                                        onDoubleClick={(e) => handleLineDoubleClick(e, line.id, 'english', line.englishText, line.englishStyles)}>
-                                                        <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                                                            <Pen size={12} className="text-gray-400" />
-                                                        </div>
-                                                        <WordGroupRenderer text={line.englishText} language="english" lineId={line.id} styles={line.englishStyles} /></div>
-                                                )}
-                                            </>
-                                        )}
-                                        <div className="relative">
-                                            {sidebars.filter(s => s.anchoredLineId === line.id).map(card => {
-                                                const color = getColorForAnecdote(card.type as AnecdoteType);
-                                                return (
-                                                    <div key={card.id} className="p-2 rounded text-sm mb-2 shadow-sm group/card relative" style={{ backgroundColor: card.color || color || '#fef3c7' }}>
-                                                        <div className="absolute -right-2 -top-2 hidden group-hover/card:flex bg-white shadow rounded-full border no-print">
-                                                            <button onClick={() => removeSidebarCard(card.id)} className="p-1 hover:bg-red-50 text-red-500"><X size={12} /></button>
-                                                        </div>
-                                                        <textarea className="w-full bg-transparent border-none resize-none focus:ring-0 text-gray-800 p-0 text-xs"
-                                                            value={card.content} onChange={(e) => updateSidebarCard(card.id, { content: e.target.value })} rows={3} />
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                    {pages.length > 0 ? (
+                        <>
+                            {/* ═══════════════════════════════════════════════════════════
+                                SINGLE PAGE VIEW MODE
+                                ═══════════════════════════════════════════════════════════ */}
+                            {viewMode === 'single' && currentPage && (
+                                <div key={currentPage.id} className="bg-white shadow-lg mx-auto mb-8 relative print:w-full print:h-screen print:shadow-none"
+                                    style={{ ...getPageStyle((currentPageIndex || 0) + 1), fontSize: theme.fontSize, lineHeight: theme.lineHeight }}>
+                                    <div className="absolute -top-8 left-0 right-0 text-center text-gray-400 text-xs no-print flex justify-between px-2">
+                                        <span>Page {(currentPageIndex || 0) + 1} of {pages.length}</span>
                                     </div>
-                                ))}
-                            </div>
-                        </div>
+                                    {renderPageContent(currentPage, currentPageIndex || 0)}
+                                </div>
+                            )}
+                            
+                            {/* ═══════════════════════════════════════════════════════════
+                                TWO-PAGE SPREAD VIEW MODE
+                                ═══════════════════════════════════════════════════════════ */}
+                            {viewMode === 'spread' && (
+                                <div className="flex gap-4 items-start justify-center">
+                                    {/* Left page (verso/even) */}
+                                    {(() => {
+                                        const leftPageIndex = currentSpreadIndex * 2;
+                                        const leftPage = pages[leftPageIndex];
+                                        if (!leftPage) return <div className="bg-gray-100 shadow-inner" style={{ ...getPageStyle(leftPageIndex + 1), opacity: 0.3 }} />;
+                                        return (
+                                            <div key={leftPage.id} className="bg-white shadow-lg relative"
+                                                style={{ ...getPageStyle(leftPageIndex + 1), fontSize: theme.fontSize, lineHeight: theme.lineHeight }}>
+                                                <div className="absolute -top-6 left-0 right-0 text-center text-gray-400 text-xs no-print">
+                                                    Page {leftPageIndex + 1}
+                                                </div>
+                                                {renderPageContent(leftPage, leftPageIndex)}
+                                            </div>
+                                        );
+                                    })()}
+                                    
+                                    {/* Gutter visualization */}
+                                    <div className="w-2 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 self-stretch rounded opacity-50 no-print" />
+                                    
+                                    {/* Right page (recto/odd) */}
+                                    {(() => {
+                                        const rightPageIndex = currentSpreadIndex * 2 + 1;
+                                        const rightPage = pages[rightPageIndex];
+                                        if (!rightPage) return <div className="bg-gray-100 shadow-inner" style={{ ...getPageStyle(rightPageIndex + 1), opacity: 0.3 }} />;
+                                        return (
+                                            <div key={rightPage.id} className="bg-white shadow-lg relative"
+                                                style={{ ...getPageStyle(rightPageIndex + 1), fontSize: theme.fontSize, lineHeight: theme.lineHeight }}>
+                                                <div className="absolute -top-6 left-0 right-0 text-center text-gray-400 text-xs no-print">
+                                                    Page {rightPageIndex + 1}
+                                                </div>
+                                                {renderPageContent(rightPage, rightPageIndex)}
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+                            
+                            {/* ═══════════════════════════════════════════════════════════
+                                CONTINUOUS SCROLL VIEW MODE
+                                ═══════════════════════════════════════════════════════════ */}
+                            {viewMode === 'continuous' && (
+                                <div className="space-y-8">
+                                    {pages.map((page, pageIndex) => (
+                                        <div key={page.id} className="bg-white shadow-lg mx-auto relative print:w-full print:h-screen print:shadow-none"
+                                            style={{ ...getPageStyle(pageIndex + 1), fontSize: theme.fontSize, lineHeight: theme.lineHeight }}>
+                                            <div className="absolute -top-6 left-0 right-0 text-center text-gray-400 text-xs no-print flex justify-between px-2">
+                                                <span>Page {pageIndex + 1}</span>
+                                            </div>
+                                            {renderPageContent(page, pageIndex)}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </>
                     ) : (
                         <div className="flex items-center justify-center h-full text-gray-400 italic">No pages to display.</div>
                     )}

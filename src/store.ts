@@ -16,7 +16,9 @@ import type {
   LinkedPair,
   AnecdoteType,
   UISettings,
-  SectionType
+  SectionType,
+  PageContent,
+  ViewMode
 } from './types';
 import Papa from 'papaparse';
 import { v4 as uuidv4 } from 'uuid';
@@ -176,6 +178,15 @@ interface StoreState extends ProjectState {
   // Template Actions
   addTemplate: (template: Omit<Template, 'id'>) => void;
   removeTemplate: (id: string) => void;
+
+  // Content Block Actions (Phase 2)
+  insertContent: (pageId: string, content: PageContent, atIndex?: number) => void;
+  updateContent: (pageId: string, contentId: string, updates: Partial<PageContent>) => void;
+  removeContent: (pageId: string, contentId: string) => void;
+  
+  // View Mode
+  viewMode: ViewMode;
+  setViewMode: (mode: ViewMode) => void;
   
   // UI Settings Actions
   updateUISettings: (settings: Partial<UISettings>) => void;
@@ -204,6 +215,14 @@ interface StoreState extends ProjectState {
   fetchProjects: () => Promise<any[]>;
   saveProject: (name: string) => Promise<void>;
   loadProject: (name: string) => Promise<void>;
+  
+  // Autosave
+  autosaveEnabled: boolean;
+  currentProjectName: string | null;
+  lastSaveTime: number | null;
+  setAutosaveEnabled: (enabled: boolean) => void;
+  setCurrentProjectName: (name: string | null) => void;
+  triggerAutosave: () => void;
 
   // Palette Management (Async)
   fetchPalettes: () => Promise<void>;
@@ -518,6 +537,86 @@ export const useStore = create<StoreState>((set, get) => ({
       templates: state.templates.filter(t => t.id !== id)
   })),
 
+  // Content Block Actions (Phase 2)
+  insertContent: (pageId, content, atIndex) => {
+    get().saveToHistory();
+    set((state) => ({
+      pages: state.pages.map(page => {
+        if (page.id !== pageId) return page;
+        
+        const newContent = { ...content, id: content.id || generateId() };
+        const newLines = [...page.lines];
+        
+        // For now, we treat content as LineData-like for backwards compatibility
+        // This will evolve as we fully migrate to polymorphic content
+        const lineData = {
+          id: newContent.id,
+          frenchText: (newContent as any).frenchText || '',
+          englishText: (newContent as any).englishText || '',
+          lineNumber: atIndex !== undefined ? atIndex + 1 : page.lines.length + 1,
+          type: newContent.type,
+          sectionType: (newContent as any).sectionType,
+          // Store full content for polymorphic rendering
+          contentData: newContent
+        };
+        
+        if (atIndex !== undefined && atIndex >= 0 && atIndex <= page.lines.length) {
+          newLines.splice(atIndex, 0, lineData as any);
+        } else {
+          newLines.push(lineData as any);
+        }
+        
+        // Renumber lines
+        const updatedLines = newLines.map((l, idx) => ({
+          ...l,
+          lineNumber: idx + 1
+        }));
+        
+        return { ...page, lines: updatedLines };
+      })
+    }));
+  },
+
+  updateContent: (pageId, contentId, updates) => {
+    get().saveToHistory();
+    set((state) => ({
+      pages: state.pages.map(page => {
+        if (page.id !== pageId) return page;
+        
+        return {
+          ...page,
+          lines: page.lines.map(line => {
+            if (line.id !== contentId) return line;
+            return { ...line, ...updates, contentData: { ...(line as any).contentData, ...updates } };
+          })
+        };
+      })
+    }));
+  },
+
+  removeContent: (pageId, contentId) => {
+    get().saveToHistory();
+    set((state) => ({
+      pages: state.pages.map(page => {
+        if (page.id !== pageId) return page;
+        
+        const newLines = page.lines.filter(l => l.id !== contentId);
+        
+        // Renumber lines
+        const updatedLines = newLines.map((l, idx) => ({
+          ...l,
+          lineNumber: idx + 1
+        }));
+        
+        return { ...page, lines: updatedLines };
+      })
+    }));
+  },
+
+  // View Mode
+  viewMode: 'single' as ViewMode,
+  setViewMode: (mode) => set({ viewMode: mode }),
+
   // Linking Actions
   addLinkedPair: (pair) => set((state) => ({
       linkedPairs: [...state.linkedPairs, { ...pair, id: generateId() }]
@@ -783,11 +882,44 @@ export const useStore = create<StoreState>((set, get) => ({
       if (!response.ok) throw new Error('Failed to load project');
       const data = await response.json();
       get().setProjectState(data);
+      set({ currentProjectName: name });
     } catch (error) {
       console.error('Error loading project:', error);
       throw error;
     }
   },
+
+  // Autosave functionality
+  autosaveEnabled: true,
+  currentProjectName: null,
+  lastSaveTime: null,
+  
+  setAutosaveEnabled: (enabled: boolean) => set({ autosaveEnabled: enabled }),
+  setCurrentProjectName: (name: string | null) => set({ currentProjectName: name }),
+  
+  triggerAutosave: (() => {
+    // Debounced autosave - saves after 2 seconds of inactivity
+    let timeoutId: NodeJS.Timeout | null = null;
+    
+    return () => {
+      const state = get();
+      if (!state.autosaveEnabled || !state.currentProjectName) return;
+      
+      // Clear any pending autosave
+      if (timeoutId) clearTimeout(timeoutId);
+      
+      // Schedule new autosave
+      timeoutId = setTimeout(async () => {
+        try {
+          await state.saveProject(state.currentProjectName!);
+          set({ lastSaveTime: Date.now() });
+          console.log(`[Autosave] Project "${state.currentProjectName}" saved at ${new Date().toLocaleTimeString()}`);
+        } catch (err) {
+          console.error('[Autosave] Failed:', err);
+        }
+      }, 2000); // 2 second debounce
+    };
+  })(),
 
   importFromCSV: (csvString) => {
     const confirmed = window.confirm(
@@ -1085,31 +1217,36 @@ export const useStore = create<StoreState>((set, get) => ({
   })),
 
   // History/Undo-Redo Actions
-  saveToHistory: () => set((state) => {
-    const snapshot = createSnapshot(state);
+  saveToHistory: () => {
+    set((state) => {
+      const snapshot = createSnapshot(state);
+      
+      // If we're not at the end of history, truncate future states
+      const newHistory = state.historyIndex >= 0 
+        ? state.history.slice(0, state.historyIndex + 1)
+        : [];
+      
+      // Add new snapshot
+      newHistory.push(snapshot);
+      
+      // Limit history size
+      const wasHistoryFull = newHistory.length > MAX_HISTORY_SIZE;
+      if (wasHistoryFull) {
+        newHistory.shift();
+      }
+      
+      return {
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+        canUndo: newHistory.length > 0,
+        canRedo: false,
+        isHistoryFull: newHistory.length >= MAX_HISTORY_SIZE
+      };
+    });
     
-    // If we're not at the end of history, truncate future states
-    const newHistory = state.historyIndex >= 0 
-      ? state.history.slice(0, state.historyIndex + 1)
-      : [];
-    
-    // Add new snapshot
-    newHistory.push(snapshot);
-    
-    // Limit history size
-    const wasHistoryFull = newHistory.length > MAX_HISTORY_SIZE;
-    if (wasHistoryFull) {
-      newHistory.shift();
-    }
-    
-    return {
-      history: newHistory,
-      historyIndex: newHistory.length - 1,
-      canUndo: newHistory.length > 0,
-      canRedo: false,
-      isHistoryFull: newHistory.length >= MAX_HISTORY_SIZE
-    };
-  }),
+    // Trigger autosave after any state change
+    get().triggerAutosave();
+  },
 
   undo: () => set((state) => {
     if (state.historyIndex < 0 || state.history.length === 0) return state;

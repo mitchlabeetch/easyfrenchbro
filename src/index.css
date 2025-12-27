@@ -1,22 +1,563 @@
+/* ═══════════════════════════════════════════════════════════════
+   EASYFRENCHBRO - BOOK LAYOUT TOOL
+   Print-Ready CSS with mm/pt Units
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────
+   EMBEDDED FONTS (Offline Support)
+   Download these fonts locally to /userdata/fonts/ for offline use
+   ───────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Source+Sans+Pro:ital,wght@0,400;0,600;0,700;1,400&family=Roboto:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────────
+   CSS CUSTOM PROPERTIES (Design Tokens)
+   ───────────────────────────────────────────────────────────────── */
+:root {
+  /* Colors - Light Mode */
+  --bg-app: #f3f4f6;
+  --bg-page: #ffffff;
+  --bg-sidebar: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  
+  /* Print Units */
+  --page-width: 210mm;
+  --page-height: 297mm;
+  --margin-top: 25mm;
+  --margin-right: 20mm;
+  --margin-bottom: 25mm;
+  --margin-left: 20mm;
+  --gutter: 0mm;
+  
+  /* Typography */
+  --font-serif: 'Libre Baskerville', 'Crimson Pro', Georgia, serif;
+  --font-sans: 'Inter', 'Source Sans Pro', system-ui, -apple-system, sans-serif;
+  --font-size-base: 12pt;
+  --line-height: 1.6;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   BASE STYLES
+   ───────────────────────────────────────────────────────────────── */
 @layer base {
   body {
-    background-color: #f3f4f6; /* gray-100 */
-    color: #111827; /* gray-900 */
+    background-color: var(--bg-app);
+    color: var(--text-primary);
     transition: background-color 0.2s, color 0.2s;
+    font-family: var(--font-sans);
   }
 
-  /* Dark mode on body */
   body.dark {
-    background-color: #111827; /* gray-900 */
-    color: #f3f4f6; /* gray-100 */
+    --bg-app: #111827;
+    --bg-page: #1f2937;
+    --bg-sidebar: #1f2937;
+    --text-primary: #f3f4f6;
+    --text-secondary: #9ca3af;
+    --border-color: #374151;
   }
 }
 
-/* Dark mode overrides using CSS variables for safety */
+/* ─────────────────────────────────────────────────────────────────
+   PAGE SIZES (Print-Ready in mm)
+   ───────────────────────────────────────────────────────────────── */
+.page-container {
+  background-color: var(--bg-app);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+}
+
+/* Base page styling */
+.page {
+  background-color: var(--bg-page);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* A4 - European Standard */
+.page-a4 {
+  width: 210mm;
+  height: 297mm;
+}
+
+/* A3 */
+.page-a3 {
+  width: 297mm;
+  height: 420mm;
+}
+
+/* A5 - Pocket Book */
+.page-a5 {
+  width: 148mm;
+  height: 210mm;
+}
+
+/* Trade Book - US Standard Novel (6" x 9") */
+.page-trade-book {
+  width: 152.4mm;
+  height: 228.6mm;
+}
+
+/* Letter - US Standard */
+.page-letter {
+  width: 215.9mm;
+  height: 279.4mm;
+}
+
+/* Legal */
+.page-legal {
+  width: 215.9mm;
+  height: 355.6mm;
+}
+
+/* Half Letter / Statement */
+.page-half-letter {
+  width: 139.7mm;
+  height: 215.9mm;
+}
+
+/* Landscape variants */
+.page-a4-landscape {
+  width: 297mm;
+  height: 210mm;
+}
+
+.page-letter-landscape {
+  width: 279.4mm;
+  height: 215.9mm;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   MARGINS & GUTTER (Book Binding)
+   ───────────────────────────────────────────────────────────────── */
+.page-content {
+  padding: var(--margin-top) var(--margin-right) var(--margin-bottom) var(--margin-left);
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* Standard margins */
+.margins-normal {
+  --margin-top: 25mm;
+  --margin-right: 20mm;
+  --margin-bottom: 25mm;
+  --margin-left: 20mm;
+}
+
+/* Narrow margins */
+.margins-narrow {
+  --margin-top: 12.7mm;
+  --margin-right: 12.7mm;
+  --margin-bottom: 12.7mm;
+  --margin-left: 12.7mm;
+}
+
+/* Wide margins */
+.margins-wide {
+  --margin-top: 25.4mm;
+  --margin-right: 25.4mm;
+  --margin-bottom: 25.4mm;
+  --margin-left: 25.4mm;
+}
+
+/* Mirror margins for book binding (Right/Recto page - odd) */
+.page-recto .page-content {
+  padding-left: calc(var(--margin-left) + var(--gutter));
+  padding-right: var(--margin-right);
+}
+
+/* Mirror margins for book binding (Left/Verso page - even) */
+.page-verso .page-content {
+  padding-left: var(--margin-left);
+  padding-right: calc(var(--margin-right) + var(--gutter));
+}
+
+/* Gutter sizes */
+.gutter-small { --gutter: 10mm; }
+.gutter-medium { --gutter: 15mm; }
+.gutter-large { --gutter: 20mm; }
+
+/* ─────────────────────────────────────────────────────────────────
+   TYPOGRAPHY (Professional Book Typesetting)
+   ───────────────────────────────────────────────────────────────── */
+.book-text {
+  font-family: var(--font-serif);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  orphans: 2;
+  widows: 2;
+}
+
+/* Text alignment options */
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-justify { text-align: justify; }
+
+/* Hyphenation control */
+.hyphens-none { hyphens: none; }
+.hyphens-auto { hyphens: auto; }
+.hyphens-manual { hyphens: manual; }
+
+/* Font sizes in points */
+.text-8pt { font-size: 8pt; }
+.text-9pt { font-size: 9pt; }
+.text-10pt { font-size: 10pt; }
+.text-11pt { font-size: 11pt; }
+.text-12pt { font-size: 12pt; }
+.text-14pt { font-size: 14pt; }
+.text-16pt { font-size: 16pt; }
+.text-18pt { font-size: 18pt; }
+.text-24pt { font-size: 24pt; }
+.text-36pt { font-size: 36pt; }
+
+/* ─────────────────────────────────────────────────────────────────
+   BILINGUAL LAYOUT (Side-by-Side & Interlinear)
+   ───────────────────────────────────────────────────────────────── */
+.bilingual-grid {
+  display: grid;
+  grid-template-columns: var(--split-ratio, 1fr 1fr);
+  gap: 4mm;
+  width: 100%;
+}
+
+.bilingual-grid.equal { grid-template-columns: 1fr 1fr; }
+.bilingual-grid.french-wide { grid-template-columns: 60% 40%; }
+.bilingual-grid.english-wide { grid-template-columns: 40% 60%; }
+
+.french-column {
+  font-family: var(--font-serif);
+  padding-right: 3mm;
+  border-right: 0.5pt solid var(--border-color);
+}
+
+.english-column {
+  font-family: var(--font-serif);
+  padding-left: 3mm;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Interlinear layout */
+.interlinear-block {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+  margin-bottom: 3mm;
+}
+
+.interlinear-french {
+  font-family: var(--font-serif);
+  font-weight: 500;
+}
+
+.interlinear-english {
+  font-family: var(--font-serif);
+  font-size: 0.9em;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   LINE NUMBERS
+   ───────────────────────────────────────────────────────────────── */
+.line-numbered {
+  position: relative;
+  padding-left: 8mm;
+}
+
+.line-number {
+  position: absolute;
+  left: 0;
+  width: 6mm;
+  text-align: right;
+  font-size: 8pt;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   CALLOUT BOXES / STAMPS
+   ───────────────────────────────────────────────────────────────── */
+.callout-box {
+  border-radius: 2mm;
+  padding: 3mm 4mm;
+  margin: 3mm 0;
+  border-left: 1mm solid;
+  page-break-inside: avoid;
+}
+
+.callout-header {
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+  font-weight: 700;
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: 0.5pt;
+  margin-bottom: 2mm;
+}
+
+.callout-icon {
+  font-size: 12pt;
+}
+
+.callout-content {
+  font-size: 10pt;
+  line-height: 1.4;
+}
+
+/* Stamp types */
+.stamp-false-friend {
+  background-color: #fef2f2;
+  border-color: #dc2626;
+}
+.stamp-false-friend .callout-header { color: #dc2626; }
+
+.stamp-grammar {
+  background-color: #eff6ff;
+  border-color: #2563eb;
+}
+.stamp-grammar .callout-header { color: #2563eb; }
+
+.stamp-culture {
+  background-color: #f5f3ff;
+  border-color: #7c3aed;
+}
+.stamp-culture .callout-header { color: #7c3aed; }
+
+.stamp-pronunciation {
+  background-color: #ecfdf5;
+  border-color: #059669;
+}
+.stamp-pronunciation .callout-header { color: #059669; }
+
+.stamp-spoken {
+  background-color: #fff7ed;
+  border-color: #ea580c;
+}
+.stamp-spoken .callout-header { color: #ea580c; }
+
+.stamp-vocab {
+  background-color: #ecfeff;
+  border-color: #0891b2;
+}
+.stamp-vocab .callout-header { color: #0891b2; }
+
+.stamp-history {
+  background-color: #fdf2f8;
+  border-color: #831843;
+}
+.stamp-history .callout-header { color: #831843; }
+
+.stamp-background {
+  background-color: #fefce8;
+  border-color: #854d0e;
+}
+.stamp-background .callout-header { color: #854d0e; }
+
+/* ─────────────────────────────────────────────────────────────────
+   DIVIDERS
+   ───────────────────────────────────────────────────────────────── */
+.divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5mm 0;
+  color: var(--text-secondary);
+}
+
+.divider-line {
+  width: 40%;
+  height: 0.5pt;
+  background-color: var(--border-color);
+}
+
+.divider-dots::before {
+  content: '• • •';
+  letter-spacing: 3mm;
+  font-size: 10pt;
+}
+
+.divider-asterisks::before {
+  content: '* * *';
+  letter-spacing: 3mm;
+  font-size: 10pt;
+}
+
+.divider-fleuron::before {
+  content: '❧';
+  font-size: 14pt;
+}
+
+.divider-ornament::before {
+  content: '§';
+  font-size: 14pt;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TABLES
+   ───────────────────────────────────────────────────────────────── */
+.book-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4mm 0;
+  font-size: 10pt;
+}
+
+.book-table th,
+.book-table td {
+  padding: 2mm 3mm;
+  text-align: left;
+  border: 0.5pt solid var(--border-color);
+}
+
+.book-table th {
+  background-color: #f9fafb;
+  font-weight: 600;
+}
+
+.book-table caption {
+  caption-side: bottom;
+  padding-top: 2mm;
+  font-size: 9pt;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   IMAGES
+   ───────────────────────────────────────────────────────────────── */
+.book-image {
+  display: block;
+  max-width: 100%;
+  margin: 4mm auto;
+}
+
+.book-image.align-left { margin-left: 0; margin-right: auto; }
+.book-image.align-right { margin-left: auto; margin-right: 0; }
+
+.book-figure {
+  margin: 4mm 0;
+  page-break-inside: avoid;
+}
+
+.book-figure figcaption {
+  text-align: center;
+  font-size: 9pt;
+  font-style: italic;
+  color: var(--text-secondary);
+  margin-top: 2mm;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   HEADER & FOOTER
+   ───────────────────────────────────────────────────────────────── */
+.page-header,
+.page-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9pt;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+}
+
+.page-header {
+  position: absolute;
+  top: 10mm;
+  left: var(--margin-left);
+  right: var(--margin-right);
+  border-bottom: 0.25pt solid var(--border-color);
+  padding-bottom: 2mm;
+}
+
+.page-footer {
+  position: absolute;
+  bottom: 10mm;
+  left: var(--margin-left);
+  right: var(--margin-right);
+  border-top: 0.25pt solid var(--border-color);
+  padding-top: 2mm;
+}
+
+.page-number {
+  font-weight: 500;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TWO-PAGE SPREAD VIEW
+   ───────────────────────────────────────────────────────────────── */
+.spread-view {
+  display: flex;
+  gap: 2mm;
+  background-color: #374151;
+  padding: 20px;
+  border-radius: 4px;
+}
+
+.spread-view .page {
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 -1px 0 rgba(0, 0, 0, 0.1) inset;
+}
+
+.spread-view .page-verso {
+  transform-origin: right center;
+}
+
+.spread-view .page-recto {
+  transform-origin: left center;
+}
+
+/* Gutter shadow effect */
+.spread-view::after {
+  content: '';
+  width: 4mm;
+  background: linear-gradient(to right, rgba(0,0,0,0.1), transparent);
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   ARROWS & SVG LAYER
+   ───────────────────────────────────────────────────────────────── */
+.arrow-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible; /* CRITICAL: Prevent arrow clipping */
+  z-index: 10;
+}
+
+.arrow-layer svg {
+  overflow: visible;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   DARK MODE OVERRIDES
+   ───────────────────────────────────────────────────────────────── */
 .dark {
   --bg-white: #1f2937;
   --bg-gray-50: #111827;
@@ -29,85 +570,62 @@
   --border-gray: #374151;
 }
 
-/* Dark mode backgrounds using more specific selectors */
-.dark .bg-white {
-  background-color: #1f2937 !important;
-}
+/* ═══════════════════════════════════════════════════════════════
+   CRITICAL: Document pages must NEVER be affected by dark mode
+   These are print previews that must remain stable for WYSIWYG
+   ═══════════════════════════════════════════════════════════════ */
 
-.dark .bg-gray-50 {
-  background-color: #111827 !important;
-}
-
-.dark .bg-gray-100 {
-  background-color: #1f2937 !important;
-}
-
-/* Dark mode text colors */
-.dark .text-gray-900 {
-  color: #f3f4f6 !important;
-}
-
-.dark .text-gray-800 {
-  color: #e5e7eb !important;
-}
-
-.dark .text-gray-700 {
-  color: #d1d5db !important;
-}
-
-.dark .text-gray-600 {
-  color: #9ca3af !important;
-}
-
-.dark .text-gray-500 {
-  color: #9ca3af !important;
-}
-
-/* Dark mode borders */
-.dark .border-gray-100,
-.dark .border-gray-200,
-.dark .border-gray-300 {
-  border-color: #374151 !important;
-}
-
-.dark .border-r,
-.dark .border-l,
-.dark .border-b,
-.dark .border-t {
-  border-color: #374151;
-}
-
-/* Dark mode shadows */
-.dark .shadow-lg {
-  --tw-shadow-color: rgba(0, 0, 0, 0.3);
-}
-
-/* Dark mode hover states */
-.dark .hover\:bg-gray-50:hover {
-  background-color: #374151 !important;
-}
-
-.dark .hover\:bg-gray-100:hover {
-  background-color: #374151 !important;
-}
-
-.dark .hover\:bg-gray-200:hover {
-  background-color: #4b5563 !important;
-}
-
-/* Dark mode workspace */
-.dark #workspace-container {
-  background-color: #111827 !important;
-}
-
-/* Keep actual document pages light for readability */
+/* The main document page container - ALWAYS stays white */
+.dark #workspace-container .bg-white.shadow-lg,
+.dark .workspace-inner .bg-white,
 .dark .page-content,
-.dark .document-page {
-  background-color: #f3f4f6 !important;
+.dark .document-page,
+.dark .page,
+.dark [class*="print:"] {
+  background-color: #ffffff !important;
   color: #111827 !important;
 }
 
-/* Dark mode inputs */
+/* Ensure text inside pages remains dark/readable */
+.dark #workspace-container .bg-white.shadow-lg *,
+.dark .workspace-inner .bg-white *,
+.dark .page-content *,
+.dark .document-page *{
+  color: inherit;
+}
+
+/* Specific text colors inside pages - must stay dark */
+.dark .workspace-inner .text-gray-300,
+.dark .workspace-inner .text-gray-400,
+.dark .workspace-inner .text-gray-500 {
+  color: #9ca3af !important;
+}
+
+/* Page text must be dark for readability */
+.dark .workspace-inner .text-gray-700,
+.dark .workspace-inner .text-gray-800,
+.dark .workspace-inner .text-gray-900 {
+  color: #1f2937 !important;
+}
+
+/* UI elements (not page content) get dark mode treatment */
+.dark .bg-white:not(.shadow-lg):not(.workspace-inner *) { 
+  background-color: #1f2937 !important; 
+}
+.dark .bg-gray-50:not(.workspace-inner *) { background-color: #111827 !important; }
+.dark .bg-gray-100:not(.workspace-inner *) { background-color: #1f2937 !important; }
+.dark .text-gray-900:not(.workspace-inner *) { color: #f3f4f6 !important; }
+.dark .text-gray-800:not(.workspace-inner *) { color: #e5e7eb !important; }
+.dark .text-gray-700:not(.workspace-inner *) { color: #d1d5db !important; }
+.dark .text-gray-600:not(.workspace-inner *) { color: #9ca3af !important; }
+.dark .text-gray-500:not(.workspace-inner *) { color: #9ca3af !important; }
+
+.dark .border-gray-100:not(.workspace-inner *),
+.dark .border-gray-200:not(.workspace-inner *),
+.dark .border-gray-300:not(.workspace-inner *) {
+  border-color: #374151 !important;
+}
+
 .dark input:not([type="color"]),
 .dark textarea,
 .dark select {
@@ -123,104 +641,383 @@
   border-color: #3b82f6 !important;
 }
 
-/* Dark mode colored backgrounds */
-.dark .bg-blue-50 {
-  background-color: rgba(59, 130, 246, 0.2) !important;
-}
+.dark ::-webkit-scrollbar { width: 8px; height: 8px; }
+.dark ::-webkit-scrollbar-track { background-color: #1f2937; }
+.dark ::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 4px; }
+.dark ::-webkit-scrollbar-thumb:hover { background-color: #6b7280; }
 
-.dark .bg-green-50 {
-  background-color: rgba(34, 197, 94, 0.2) !important;
-}
-
-.dark .bg-red-50 {
-  background-color: rgba(239, 68, 68, 0.2) !important;
-}
-
-.dark .bg-purple-50 {
-  background-color: rgba(147, 51, 234, 0.2) !important;
-}
-
-.dark .bg-indigo-50 {
-  background-color: rgba(99, 102, 241, 0.2) !important;
-}
-
-.dark .bg-amber-50 {
-  background-color: rgba(245, 158, 11, 0.2) !important;
-}
-
-.dark .bg-yellow-50 {
-  background-color: rgba(234, 179, 8, 0.2) !important;
-}
-
-/* Dark mode colored text */
-.dark .text-blue-700 {
-  color: #93c5fd !important;
-}
-
-.dark .text-green-700 {
-  color: #86efac !important;
-}
-
-.dark .text-red-700 {
-  color: #fca5a5 !important;
-}
-
-.dark .text-purple-700 {
-  color: #c4b5fd !important;
-}
-
-.dark .text-indigo-700 {
-  color: #a5b4fc !important;
-}
-
-.dark .text-amber-700 {
-  color: #fcd34d !important;
-}
-
-/* Dark mode scrollbar */
-.dark ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.dark ::-webkit-scrollbar-track {
-  background-color: #1f2937;
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background-color: #4b5563;
-  border-radius: 4px;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background-color: #6b7280;
-}
-
-/* Print styles */
+/* ─────────────────────────────────────────────────────────────────
+   PRINT STYLES
+   ───────────────────────────────────────────────────────────────── */
 @media print {
-  .no-print { 
+  /* Hide non-printable UI elements */
+  .no-print,
+  .sidebar,
+  .toolbar,
+  .controls,
+  [data-no-print="true"] { 
     display: none !important; 
   }
   
-  body, 
-  #root, 
+  /* Reset layout for print */
+  body,
+  html,
+  #root,
   #workspace-container { 
     background: white !important; 
-    margin: 0; 
-    padding: 0; 
+    margin: 0 !important; 
+    padding: 0 !important; 
     overflow: visible !important; 
-    height: auto; 
+    height: auto !important; 
+    width: auto !important;
     color: black !important; 
+  }
+  
+  /* Page setup */
+  .page {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+  
+  .page:last-child {
+    page-break-after: auto;
+  }
+
+  /* Ensure proper page sizing */
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+  
+  @page :left {
+    margin-left: 25mm;
+    margin-right: 20mm;
+  }
+  
+  @page :right {
+    margin-left: 20mm;
+    margin-right: 25mm;
+  }
+  
+  /* Arrows visible during print */
+  .arrow-layer {
+    overflow: visible !important;
   }
   
   /* Hide scrollbars */
   ::-webkit-scrollbar { 
-    display: none; 
+    display: none !important; 
   }
   
   /* Force light mode for printing */
-  .dark {
+  .dark,
+  .dark * {
     background: white !important;
     color: black !important;
+    border-color: #e5e7eb !important;
   }
+  
+  /* Prevent page breaks inside critical elements */
+  .callout-box,
+  .book-table,
+  .book-figure,
+  .bilingual-block {
+    page-break-inside: avoid;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   PRINT MARKS (Crop/Bleed)
+   ───────────────────────────────────────────────────────────────── */
+.print-marks {
+  position: relative;
+}
+
+.print-marks::before,
+.print-marks::after {
+  content: '';
+  position: absolute;
+  border: 0;
+}
+
+/* Crop marks */
+.crop-marks .crop-tl,
+.crop-marks .crop-tr,
+.crop-marks .crop-bl,
+.crop-marks .crop-br {
+  position: absolute;
+  width: 10mm;
+  height: 10mm;
+}
+
+.crop-marks .crop-tl { top: -12mm; left: -12mm; border-right: 0.25pt solid black; border-bottom: 0.25pt solid black; }
+.crop-marks .crop-tr { top: -12mm; right: -12mm; border-left: 0.25pt solid black; border-bottom: 0.25pt solid black; }
+.crop-marks .crop-bl { bottom: -12mm; left: -12mm; border-right: 0.25pt solid black; border-top: 0.25pt solid black; }
+.crop-marks .crop-br { bottom: -12mm; right: -12mm; border-left: 0.25pt solid black; border-top: 0.25pt solid black; }
+
+/* Bleed area */
+.bleed-area {
+  --bleed: 3mm;
+  padding: var(--bleed);
+  background-color: transparent;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   SNIPPET LIBRARY
+   ───────────────────────────────────────────────────────────────── */
+.snippet-library {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 8px;
+}
+
+.snippet-item {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px;
+  cursor: grab;
+  transition: all 0.15s ease;
+  background: var(--bg-sidebar);
+}
+
+.snippet-item:hover {
+  border-color: var(--accent-blue);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.snippet-item:active {
+  cursor: grabbing;
+}
+
+.snippet-preview {
+  font-size: 9pt;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   WORKSPACE UI
+   ───────────────────────────────────────────────────────────────── */
+#workspace-container {
+  background-color: var(--bg-app);
+  min-height: 100vh;
+  overflow: auto;
+}
+
+/* Rulers (optional UI element) */
+.ruler {
+  background-color: #f9fafb;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 8pt;
+  color: var(--text-secondary);
+}
+
+.ruler-horizontal {
+  height: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.ruler-vertical {
+  width: 20px;
+  position: sticky;
+  left: 0;
+  z-index: 50;
+}
+
+/* Gutter guide lines */
+.gutter-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--accent-blue) 0,
+    var(--accent-blue) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   FOOTNOTES
+   ───────────────────────────────────────────────────────────────── */
+.footnote-ref {
+  font-size: 8pt;
+  vertical-align: super;
+  color: var(--accent-blue);
+  cursor: pointer;
+}
+
+.footnote-ref:hover {
+  text-decoration: underline;
+}
+
+.footnotes-section {
+  border-top: 0.5pt solid var(--border-color);
+  margin-top: 4mm;
+  padding-top: 2mm;
+  font-size: 9pt;
+}
+
+.footnote-item {
+  display: flex;
+  gap: 2mm;
+  margin-bottom: 1mm;
+}
+
+.footnote-number {
+  font-weight: 600;
+  color: var(--accent-blue);
+  min-width: 4mm;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   ANIMATIONS (Micro-interactions)
+   ───────────────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-pulse {
+  animation: pulse 1.5s infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   RESPONSIVE (Screen Preview)
+   ───────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 1024px) {
+  .page {
+    /* Scale down for preview on smaller screens */
+    transform: scale(0.7);
+    transform-origin: top center;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .page {
+    transform: scale(0.5);
+  }
+  
+  .spread-view {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   COLOR PROFILE SIMULATION
+   ───────────────────────────────────────────────────────────────── */
+
+/* CMYK Preview - simulates reduced gamut */
+.color-profile-cmyk .page {
+  filter: saturate(0.85) contrast(1.02);
+}
+
+/* Adobe RGB - slightly wider gamut simulation */
+.color-profile-adobergb .page {
+  filter: saturate(1.1);
+}
+
+/* Registration marks (for print) */
+.registration-marks::before,
+.registration-marks::after {
+  content: '⊕';
+  position: absolute;
+  font-size: 8pt;
+  color: black;
+}
+
+.registration-marks::before {
+  top: -15mm;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.registration-marks::after {
+  bottom: -15mm;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TEXT FLOW / LINKED BOXES
+   ───────────────────────────────────────────────────────────────── */
+
+.text-box {
+  position: relative;
+  border: 1px dashed transparent;
+  transition: border-color 0.2s;
+}
+
+.text-box:hover {
+  border-color: var(--accent-blue);
+}
+
+.text-box-linked::after {
+  content: '↓';
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--accent-blue);
+  font-size: 14pt;
+  opacity: 0.6;
+}
+
+.text-box-overflow {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.text-box-overflow::after {
+  content: '⋯';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(to right, transparent, white 50%);
+  padding-left: 20px;
+  color: var(--accent-orange);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   PAGE VIRTUALIZATION HELPERS
+   ───────────────────────────────────────────────────────────────── */
+
+.page-placeholder {
+  background: var(--bg-sidebar);
+  border: 1px dashed var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 10pt;
+}
+
+.page-placeholder::after {
+  content: 'Page ' attr(data-page-number);
+}
+
+/* Virtualized scroll container */
+.virtualized-scroll {
+  will-change: transform;
+  contain: layout style paint;
 }

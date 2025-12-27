@@ -31,7 +31,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
      }
   };
 
-  const applyStyleToSelection = (styleKey: keyof Omit<TextStyle, 'wordId'>) => {
+  const applyStyleToSelection = (styleKey: 'bold' | 'italic' | 'underline' | 'strikethrough') => {
       const newStyles = [...styles];
       
       selectedWordIndices.forEach(index => {

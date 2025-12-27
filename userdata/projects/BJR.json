@@ -7,14 +7,35 @@
   },
   "pages": [
     {
-      "id": "page-1",
-      "lines": []
+      "id": "ca1ee490-5be4-4762-a588-9bf1cdbf1e3f",
+      "lines": [
+        {
+          "id": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
+          "lineNumber": 1,
+          "frenchText": "Il fait beau aujourd'hui.",
+          "englishText": "It is nice today."
+        },
+        {
+          "id": "66924a16-d332-4eb8-bb22-f1bf5e1e1399",
+          "lineNumber": 2,
+          "frenchText": "Le chat mange la souris.",
+          "englishText": "The cat eats the mouse."
+        }
+      ]
     }
   ],
   "highlights": [],
   "wordGroups": [],
   "arrows": [],
-  "sidebars": [],
+  "sidebars": [
+    {
+      "type": "spoken",
+      "content": "New Note",
+      "anchoredLineId": "4a3c93a5-0fdc-4bae-b3d3-db8c428e5af9",
+      "id": "3c233464-d4ca-4fcd-9d55-fee4b80085e8",
+      "color": "#dbeafe"
+    }
+  ],
   "theme": {
     "frenchFontFamily": "serif",
     "englishFontFamily": "sans-serif",
@@ -26,7 +47,8 @@
       "#dbeafe",
       "#fce7f3"
     ],
-    "activePaletteId": "default-palette"
+    "activePaletteId": "default-palette",
+    "layoutMode": "side-by-side"
   },
   "palettes": [
     {
@@ -56,5 +78,13 @@
       },
       "isDefault": true
     }
-  ]
+  ],
+  "linkedPairs": [],
+  "templates": [],
+  "uiSettings": {
+    "showFrench": true,
+    "showEnglish": true,
+    "focusMode": false,
+    "darkMode": false
+  }
 }
