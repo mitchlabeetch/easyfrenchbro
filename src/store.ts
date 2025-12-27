@@ -209,6 +209,7 @@ interface StoreState extends ProjectState {
 
   importFromCSV: (csvString: string) => void;
   reflowPages: (linesPerPage: number) => void;
+  smartReflowPages: () => void; // Auto-calculates based on page size and font
   autoAlign: () => void;
 
   parseAndSetText: (rawFrench: string, rawEnglish: string) => void;
@@ -1005,6 +1006,133 @@ export const useStore = create<StoreState>((set, get) => ({
 
     return { pages: newPages };
   }),
+
+  // Smart reflow that calculates page capacity based on actual settings
+  smartReflowPages: () => {
+    const state = get();
+    const { pages, theme } = state;
+    
+    // Get page layout settings
+    const layout = theme.pageLayout;
+    if (!layout) {
+      // Fallback to simple reflow if no layout defined
+      get().reflowPages(25);
+      return;
+    }
+    
+    // Parse dimensions (convert to pixels for calculation, assuming 96 DPI screen)
+    const parseToPixels = (value: string): number => {
+      const num = parseFloat(value) || 0;
+      if (value.includes('mm')) return num * 3.78; // 1mm ≈ 3.78px at 96 DPI
+      if (value.includes('in')) return num * 96;
+      if (value.includes('pt')) return num * 1.33;
+      if (value.includes('px')) return num;
+      return num * 3.78; // Default to mm
+    };
+    
+    const pageHeight = parseToPixels(layout.height);
+    const marginTop = parseToPixels(layout.margins?.top || '25mm');
+    const marginBottom = parseToPixels(layout.margins?.bottom || '25mm');
+    const headerFooterHeight = 60; // Reserve space for header/footer
+    
+    // Available content height
+    const contentHeight = pageHeight - marginTop - marginBottom - headerFooterHeight;
+    
+    // Estimate line height in pixels based on theme
+    const fontSize = parseFloat(theme.fontSize) || 16;
+    const lineHeightMultiplier = parseFloat(theme.lineHeight) || 1.6;
+    const baseLineHeight = fontSize * lineHeightMultiplier;
+    
+    // Height estimates for different content types
+    const estimateContentHeight = (line: LineData): number => {
+      const contentData = (line as { contentData?: PageContent }).contentData;
+      
+      if (contentData) {
+        switch (contentData.type) {
+          case 'divider':
+            return 40; // Dividers are typically short
+          case 'callout':
+            // Callouts have header + content
+            return 80 + ((contentData as { content?: string }).content?.length || 0) * 0.3;
+          case 'table':
+            // Tables: header + rows
+            const rows = (contentData as { rows?: string[][] }).rows?.length || 0;
+            return 40 + rows * 30;
+          case 'image':
+            return 200; // Default image placeholder height
+          default:
+            break;
+        }
+      }
+      
+      // For text content, estimate based on text length and layout mode
+      const textLength = Math.max(
+        (line.frenchText || '').length,
+        (line.englishText || '').length
+      );
+      
+      // Rough estimate: characters per line varies by font, assume ~60
+      const estimatedLines = Math.ceil(textLength / 60);
+      
+      // Account for section types
+      let multiplier = 1;
+      if (line.sectionType === 'title') multiplier = 2;
+      if (line.sectionType === 'heading') multiplier = 1.5;
+      
+      // In interlinear mode, French and English stack vertically
+      const layoutMultiplier = theme.layoutMode === 'interlinear' ? 2 : 1;
+      
+      return Math.max(baseLineHeight, estimatedLines * baseLineHeight * multiplier * layoutMultiplier) + 20; // +20 for spacing
+    };
+    
+    // Collect all lines from all pages
+    const allLines = pages.flatMap(p => p.lines);
+    
+    if (allLines.length === 0) {
+      return; // Nothing to reflow
+    }
+    
+    get().saveToHistory();
+    
+    // Distribute lines across pages based on height
+    const newPages: PageData[] = [];
+    let currentLines: LineData[] = [];
+    let currentHeight = 0;
+    
+    for (const line of allLines) {
+      const lineHeight = estimateContentHeight(line);
+      
+      // Check if this line would overflow the current page
+      if (currentHeight + lineHeight > contentHeight && currentLines.length > 0) {
+        // Save current page and start a new one
+        newPages.push({
+          id: generateId(),
+          lines: currentLines.map((l, idx) => ({ ...l, lineNumber: idx + 1 }))
+        });
+        currentLines = [];
+        currentHeight = 0;
+      }
+      
+      // Add line to current page
+      currentLines.push(line);
+      currentHeight += lineHeight;
+    }
+    
+    // Don't forget the last page
+    if (currentLines.length > 0) {
+      newPages.push({
+        id: generateId(),
+        lines: currentLines.map((l, idx) => ({ ...l, lineNumber: idx + 1 }))
+      });
+    }
+    
+    // Ensure at least one page exists
+    if (newPages.length === 0) {
+      newPages.push({ id: generateId(), lines: [] });
+    }
+    
+    set({ pages: newPages });
+  },
 
   autoAlign: () => set((state) => {
     const allLines = state.pages.flatMap(p => p.lines);

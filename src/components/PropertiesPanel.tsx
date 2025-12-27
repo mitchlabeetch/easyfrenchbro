@@ -101,7 +101,8 @@ export const PropertiesPanel: React.FC = () => {
     zoomLevel,
     setZoomLevel,
     uiSettings,
-    updateUISettings
+    updateUISettings,
+    smartReflowPages
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'theme' | 'palette' | 'layout' | 'templates' | 'content'>('theme');
@@ -400,12 +401,31 @@ export const PropertiesPanel: React.FC = () => {
                         height: preset?.height || '297mm'
                       }
                     });
+                    // Auto-reflow after a short delay to let state update
+                    setTimeout(() => smartReflowPages(), 100);
                   }}
                 >
                   {PAGE_SIZES.map(s => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Reflow Pages Button */}
+              <div className="pt-2">
+                <button
+                  onClick={() => smartReflowPages()}
+                  className="w-full py-2 px-3 bg-indigo-50 text-indigo-700 rounded text-xs font-semibold hover:bg-indigo-100 transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M17 1l4 4-4 4"/>
+                    <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                    <path d="M7 23l-4-4 4-4"/>
+                    <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+                  </svg>
+                  Reflow Pages (Auto-fit Content)
+                </button>
+                <p className="text-[9px] text-gray-400 mt-1 text-center">Redistributes content to fit page size</p>
               </div>
 
               {/* ... (Existing Margins code preserved but simplified for brevity in this full rewrite if needed, 
